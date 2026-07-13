@@ -6,9 +6,17 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   app: {
     head: {
-      title: 'Mint Cosmetics — Nuxt Skeleton',
+      title: 'Pharmacy Vitamin — Beauty & Wellness',
       meta: [
-        { name: 'description', content: 'Structural Nuxt 3 rebuild of the mint07.com homepage layout (placeholder content).' }
+        { name: 'description', content: 'Cosmetics, skincare and wellness essentials — Pharmacy Vitamin online store.' }
+      ],
+      link: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&family=Rubik:wght@500;600;700;800&display=swap'
+        }
       ]
     }
   }

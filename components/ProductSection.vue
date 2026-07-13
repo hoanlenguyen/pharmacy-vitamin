@@ -6,14 +6,15 @@
 <template>
   <section class="mx-auto max-w-7xl px-4 py-8">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-xl font-bold text-gray-800">{{ title }}</h2>
+      <h2 class="font-display text-xl font-bold text-gray-900">{{ title }}</h2>
 
       <div v-if="tabs?.length" class="flex gap-4 text-sm font-medium text-gray-500">
         <button
           v-for="tab in tabs"
           :key="tab"
-          class="hover:text-mint-700"
-          :class="{ 'text-mint-700': tab === activeTab }"
+          type="button"
+          class="border-b-2 border-transparent pb-1 transition-colors hover:text-rose-600"
+          :class="{ 'border-rose-500 text-rose-600': tab === activeTab }"
           @click="activeTab = tab"
         >
           {{ tab }}
@@ -21,8 +22,9 @@
       </div>
 
       <div v-if="countdownSeconds" class="flex items-center gap-2 text-sm text-gray-600">
+        <Timer class="h-4 w-4 text-rose-500" aria-hidden="true" />
         <span>Ends in:</span>
-        <span class="rounded bg-gray-800 px-2 py-1 font-mono text-xs text-white">{{ formattedCountdown }}</span>
+        <span class="rounded-full bg-gray-900 px-2.5 py-1 font-mono text-xs tabular-nums text-white">{{ formattedCountdown }}</span>
       </div>
     </div>
 
@@ -33,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { Timer } from '@lucide/vue'
 import type { Product } from './ProductCard.vue'
 
 const props = defineProps<{

@@ -4,34 +4,58 @@
   simple "Add to cart" CTA vs. "Choose options" CTA for variable products.
 -->
 <template>
-  <div class="flex flex-col rounded-lg border border-gray-100 p-3 shadow-sm">
-    <div class="relative mb-3 flex h-32 items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-      Product image
-      <span
-        v-if="product.soldCount"
-        class="absolute left-1 top-1 rounded bg-mint-600 px-1.5 py-0.5 text-[10px] font-medium text-white"
-      >
-        Sold {{ product.soldCount }}
-      </span>
-    </div>
+  <div class="group flex flex-col rounded-xl border border-gray-100 p-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
+    <component :is="product.slug ? NuxtLink : 'div'" :to="product.slug ? `/products/${product.slug}` : undefined">
+      <div class="relative mb-3 flex h-32 items-center justify-center rounded-lg bg-rose-soft-gradient text-xs text-rose-300">
+        <ImageIcon class="h-8 w-8" aria-hidden="true" />
+        <span
+          v-if="product.soldCount"
+          class="absolute left-1.5 top-1.5 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-medium text-white"
+        >
+          Sold {{ product.soldCount }}
+        </span>
+      </div>
 
-    <p class="line-clamp-2 text-sm font-medium text-gray-800">{{ product.name }}</p>
+      <p class="line-clamp-2 text-sm font-medium text-gray-800 group-hover:text-rose-700">{{ product.name }}</p>
+    </component>
 
-    <p v-if="product.rating" class="mt-1 text-xs text-amber-500">
-      ★ {{ product.rating.toFixed(2) }} ({{ product.reviewCount }})
+    <p v-if="product.rating" class="mt-1 flex items-center gap-1 text-xs text-amber-500">
+      <Star class="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+      {{ product.rating.toFixed(2) }} ({{ product.reviewCount }})
     </p>
 
     <div class="mt-2 flex items-baseline gap-2">
-      <span class="text-sm font-semibold text-mint-700">{{ formattedPrice }}</span>
+      <span class="text-sm font-semibold text-rose-600">{{ formattedPrice }}</span>
       <span v-if="product.originalPrice" class="text-xs text-gray-400 line-through">
         {{ formatCurrency(product.originalPrice) }}
       </span>
     </div>
 
-    <button
-      class="mt-3 rounded bg-mint-600 py-1.5 text-xs font-semibold text-white hover:bg-mint-700"
+    <NuxtLink
+      v-if="product.hasVariants && product.slug"
+      :to="`/products/${product.slug}`"
+      class="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-rose-gradient py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
     >
-      {{ product.hasVariants ? 'Choose Options' : 'Add to Cart' }}
+      <ShoppingCart class="h-3.5 w-3.5" aria-hidden="true" />
+      Choose Options
+    </NuxtLink>
+    <button
+      v-else-if="!product.hasVariants"
+      type="button"
+      class="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-rose-gradient py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+      @click="handleAddToCart"
+    >
+      <ShoppingCart class="h-3.5 w-3.5" aria-hidden="true" />
+      {{ justAdded ? 'Added!' : 'Add to Cart' }}
+    </button>
+    <button
+      v-else
+      type="button"
+      disabled
+      class="mt-3 flex cursor-not-allowed items-center justify-center gap-1.5 rounded-full bg-gray-200 py-1.5 text-xs font-semibold text-gray-500"
+    >
+      <ShoppingCart class="h-3.5 w-3.5" aria-hidden="true" />
+      Choose Options
     </button>
     <p v-if="product.hasVariants" class="mt-1 text-[10px] text-gray-400">
       This product has multiple variants — choose on the product page.
@@ -40,6 +64,9 @@
 </template>
 
 <script setup lang="ts">
+import { Image as ImageIcon, ShoppingCart, Star } from '@lucide/vue'
+import { resolveComponent } from 'vue'
+
 export type Product = {
   name: string
   price: number
@@ -49,9 +76,26 @@ export type Product = {
   reviewCount?: number
   soldCount?: number
   hasVariants?: boolean
+  slug?: string
 }
 
 const props = defineProps<{ product: Product }>()
+
+const NuxtLink = resolveComponent('NuxtLink')
+const { addItem } = useCart()
+const justAdded = ref(false)
+
+function handleAddToCart() {
+  addItem({
+    id: props.product.slug ?? props.product.name,
+    name: props.product.name,
+    price: props.product.price,
+    originalPrice: props.product.originalPrice,
+    slug: props.product.slug
+  })
+  justAdded.value = true
+  setTimeout(() => (justAdded.value = false), 1200)
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US').format(value)

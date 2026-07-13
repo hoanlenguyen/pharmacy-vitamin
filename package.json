@@ -7,14 +7,21 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "db:generate-seed": "node db/seed/generate-seed.mjs",
+    "db:migrate:local": "wrangler d1 migrations apply pharmacy-vitamin-db --local",
+    "db:seed:local": "wrangler d1 execute pharmacy-vitamin-db --local --file db/seed.sql",
+    "db:migrate:remote": "wrangler d1 migrations apply pharmacy-vitamin-db --remote",
+    "db:seed:remote": "wrangler d1 execute pharmacy-vitamin-db --remote --file db/seed.sql"
   },
   "dependencies": {
+    "@lucide/vue": "^1.24.0",
     "nuxt": "^3.13.0",
     "vue": "^3.4.0",
     "vue-router": "^4.4.0"
   },
   "devDependencies": {
-    "@nuxtjs/tailwindcss": "^6.12.0"
+    "@nuxtjs/tailwindcss": "^6.12.0",
+    "wrangler": "^4.110.0"
   }
 }

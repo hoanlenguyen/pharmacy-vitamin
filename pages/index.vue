@@ -1,49 +1,35 @@
 <!--
-  Homepage layout order mirrors mint07.com's structure (top to bottom):
-  1. Announcement bar
-  2. Header (logo / search / account / cart)
-  3. Secondary top link row
-  4. Mega-menu category nav
-  5. Hero slider
-  6. Quick-category pill row
-  7. 3-column promo banner strip
-  8. "Best Price Every Day" product section (with countdown)
-  9. "Monthly Sale Program" product section (with tab filters)
-  10. "Makeup" product section (with tab filters)
-  11. Footer
+  Homepage content (chrome — announcement bar, header, nav, footer — lives in layouts/default.vue):
+  1. Hero slider
+  2. Quick-category pill row
+  3. 3-column promo banner strip
+  4. "Best Price Every Day" product section (with countdown)
+  5. "Monthly Sale Program" product section (with tab filters)
+  6. "Makeup" product section (with tab filters)
 -->
 <template>
   <div>
-    <AnnouncementBar />
-    <TheHeader />
-    <TopLinkRow />
-    <MegaMenu />
+    <HeroSlider />
+    <CategoryPillRow />
+    <PromoBannerGrid />
 
-    <main>
-      <HeroSlider />
-      <CategoryPillRow />
-      <PromoBannerGrid />
+    <ProductSection
+      title="Best Price Every Day"
+      :products="dailyDeals"
+      :countdown-seconds="32400"
+    />
 
-      <ProductSection
-        title="Best Price Every Day"
-        :products="dailyDeals"
-        :countdown-seconds="32400"
-      />
+    <ProductSection
+      title="Monthly Sale Program"
+      :products="monthlySale"
+      :tabs="['Best Price', 'Brand Deals', 'Flash Deals']"
+    />
 
-      <ProductSection
-        title="Monthly Sale Program"
-        :products="monthlySale"
-        :tabs="['Best Price', 'Brand Deals', 'Flash Deals']"
-      />
-
-      <ProductSection
-        title="Makeup"
-        :products="makeupPicks"
-        :tabs="['All', 'Lips', 'Face', 'Eyes']"
-      />
-    </main>
-
-    <TheFooter />
+    <ProductSection
+      title="Makeup"
+      :products="makeupPicks"
+      :tabs="['All', 'Lips', 'Face', 'Eyes']"
+    />
   </div>
 </template>
 
@@ -60,7 +46,7 @@ const dailyDeals: Product[] = [
 ]
 
 const monthlySale: Product[] = [
-  { name: 'Skin Repair Sheet Mask 25g', price: 22000, originalPrice: 50000, soldCount: 1205 },
+  { name: 'Skin Repair Sheet Mask 25g', price: 22000, originalPrice: 50000, soldCount: 1205, slug: 'caryophy-skin-repair-mask-sheet-25g' },
   { name: 'Aqua Tone-Up Sunscreen SPF50+ PA++++', price: 345000, originalPrice: 560000, soldCount: 1196, hasVariants: true },
   { name: 'Pore-Clearing Gommage Peel 120g', price: 130000, originalPrice: 150000, soldCount: 1758 },
   { name: 'UV Protection Milk SPF50+ PA+++ 60ml', price: 508000, originalPrice: 558000, soldCount: 345 },

@@ -5,7 +5,7 @@
 -->
 <template>
   <nav class="relative border-b border-gray-200 bg-white">
-    <ul class="mx-auto flex max-w-7xl items-center gap-1 px-4 text-sm font-medium">
+    <ul class="mx-auto flex max-w-7xl flex-wrap items-center gap-1 px-4 text-sm font-medium">
       <li
         v-for="item in items"
         :key="item.label"
@@ -15,53 +15,58 @@
       >
         <NuxtLink
           :to="item.to"
-          class="block px-3 py-3 text-gray-700 hover:bg-mint-50 hover:text-mint-700"
+          class="block px-3 py-3 text-gray-700 transition-colors hover:bg-rose-50 hover:text-rose-600"
         >
           {{ item.label }}
         </NuxtLink>
 
-        <!-- Simple dropdown -->
-        <div
-          v-if="item.type === 'simple' && openItem === item.label"
-          class="absolute left-0 top-full z-20 min-w-[200px] rounded-b border border-gray-200 bg-white py-2 shadow-lg"
-        >
-          <NuxtLink
-            v-for="link in item.links"
-            :key="link.label"
-            :to="link.to"
-            class="block px-4 py-2 text-sm text-gray-600 hover:bg-mint-50 hover:text-mint-700"
+        <Transition name="drop">
+          <!-- Simple dropdown -->
+          <div
+            v-if="item.type === 'simple' && openItem === item.label"
+            class="absolute left-0 top-full z-20 min-w-[200px] rounded-b-xl border border-gray-200 bg-white py-2 shadow-pop"
           >
-            {{ link.label }}
-          </NuxtLink>
-        </div>
-
-        <!-- Full mega-menu -->
-        <div
-          v-else-if="item.type === 'mega' && openItem === item.label"
-          class="absolute left-0 top-full z-20 flex w-[640px] gap-6 rounded-b border border-gray-200 bg-white p-6 shadow-lg"
-        >
-          <div class="hidden w-40 shrink-0 items-center justify-center rounded bg-mint-100 text-xs text-mint-700 lg:flex">
-            Promo image
+            <NuxtLink
+              v-for="link in item.links"
+              :key="link.label"
+              :to="link.to"
+              class="block px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+            >
+              {{ link.label }}
+            </NuxtLink>
           </div>
-          <div class="grid flex-1 grid-cols-2 gap-6">
-            <div v-for="col in item.columns" :key="col.title">
-              <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-mint-700">{{ col.title }}</p>
-              <ul class="space-y-1.5">
-                <li v-for="link in col.links" :key="link.label">
-                  <NuxtLink :to="link.to" class="text-sm text-gray-600 hover:text-mint-700">
-                    {{ link.label }}
-                  </NuxtLink>
-                </li>
-              </ul>
+
+          <!-- Full mega-menu -->
+          <div
+            v-else-if="item.type === 'mega' && openItem === item.label"
+            class="absolute left-0 top-full z-20 flex w-[640px] gap-6 rounded-b-xl border border-gray-200 bg-white p-6 shadow-pop"
+          >
+            <div class="hidden w-40 shrink-0 flex-col items-center justify-center gap-2 rounded-xl bg-rose-soft-gradient text-xs font-medium text-rose-700 lg:flex">
+              <Gift class="h-8 w-8 text-rose-400" aria-hidden="true" />
+              Promo image
+            </div>
+            <div class="grid flex-1 grid-cols-2 gap-6">
+              <div v-for="col in item.columns" :key="col.title">
+                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-rose-600">{{ col.title }}</p>
+                <ul class="space-y-1.5">
+                  <li v-for="link in col.links" :key="link.label">
+                    <NuxtLink :to="link.to" class="text-sm text-gray-600 transition-colors hover:text-rose-600">
+                      {{ link.label }}
+                    </NuxtLink>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
+        </Transition>
       </li>
     </ul>
   </nav>
 </template>
 
 <script setup lang="ts">
+import { Gift } from '@lucide/vue'
+
 type SimpleLink = { label: string; to: string }
 type MegaColumn = { title: string; links: SimpleLink[] }
 type NavItem = {
@@ -148,3 +153,22 @@ const items: NavItem[] = [
 
 const openItem = ref<string | null>(null)
 </script>
+
+<style scoped>
+.drop-enter-active,
+.drop-leave-active {
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.drop-enter-from,
+.drop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-enter-active,
+  .drop-leave-active {
+    transition: none;
+  }
+}
+</style>

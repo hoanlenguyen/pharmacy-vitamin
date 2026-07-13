@@ -1,0 +1,10 @@
+name = "pharmacy-vitamin-api"
+compatibility_date = "2026-06-01"
+
+# TODO: after running `wrangler d1 create pharmacy-vitamin-db`, paste the
+# real database_id below. account_id comes from the Cloudflare dashboard.
+[[d1_databases]]
+binding = "DB"
+database_name = "pharmacy-vitamin-db"
+database_id = "REPLACE_WITH_REAL_DATABASE_ID"
+migrations_dir = "db/migrations"
