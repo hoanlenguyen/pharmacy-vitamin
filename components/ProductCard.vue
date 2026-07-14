@@ -6,8 +6,16 @@
 <template>
   <div class="group flex flex-col rounded-xl border border-gray-100 p-3 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover">
     <component :is="product.slug ? NuxtLink : 'div'" :to="product.slug ? `/products/${product.slug}` : undefined">
-      <div class="relative mb-3 flex h-32 items-center justify-center rounded-lg bg-rose-soft-gradient text-xs text-rose-300">
-        <ImageIcon class="h-8 w-8" aria-hidden="true" />
+      <div class="relative mb-3 flex h-32 items-center justify-center overflow-hidden rounded-lg bg-rose-soft-gradient text-xs text-rose-300">
+        <img
+          v-if="product.imageUrl && !imageFailed"
+          :src="product.imageUrl"
+          :alt="product.name"
+          class="h-full w-full object-cover"
+          loading="lazy"
+          @error="imageFailed = true"
+        />
+        <ImageIcon v-else class="h-8 w-8" aria-hidden="true" />
         <span
           v-if="product.soldCount"
           class="absolute left-1.5 top-1.5 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-medium text-white"
@@ -77,6 +85,7 @@ export type Product = {
   soldCount?: number
   hasVariants?: boolean
   slug?: string
+  imageUrl?: string
 }
 
 const props = defineProps<{ product: Product }>()
@@ -84,6 +93,7 @@ const props = defineProps<{ product: Product }>()
 const NuxtLink = resolveComponent('NuxtLink')
 const { addItem } = useCart()
 const justAdded = ref(false)
+const imageFailed = ref(false)
 
 function handleAddToCart() {
   addItem({

@@ -4,6 +4,12 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
+  runtimeConfig: {
+    // Server-only — never exposed to the client (no `public` prefix).
+    workerApiUrl: process.env.WORKER_API_URL || 'http://127.0.0.1:8787',
+    workerApiToken: process.env.WORKER_API_TOKEN || '',
+    adminUiToken: process.env.ADMIN_UI_TOKEN || process.env.WORKER_API_TOKEN || ''
+  },
   app: {
     head: {
       title: 'Pharmacy Vitamin — Beauty & Wellness',

@@ -193,3 +193,25 @@ INSERT INTO product_images (id, product_id, url, alt_text, sort_order) VALUES ('
 INSERT INTO product_images (id, product_id, url, alt_text, sort_order) VALUES ('img:volumizing-waterproof-mascara:2', 'prod:volumizing-waterproof-mascara', 'https://assets.pharmacy-vitamin.example/volumizing-waterproof-mascara-2.jpg', 'Volumizing Waterproof Mascara', 1);
 INSERT INTO product_images (id, product_id, url, alt_text, sort_order) VALUES ('img:volumizing-waterproof-mascara:3', 'prod:volumizing-waterproof-mascara', 'https://assets.pharmacy-vitamin.example/volumizing-waterproof-mascara-3.jpg', 'Volumizing Waterproof Mascara', 2);
 
+INSERT INTO users (id, email, password_hash, name, phone) VALUES ('user:lan', 'lan.nguyen@example.com', 'seed-placeholder-not-a-real-hash', 'Nguyễn Thị Lan', '0901234567');
+INSERT INTO users (id, email, password_hash, name, phone) VALUES ('user:minh', 'minh.tran@example.com', 'seed-placeholder-not-a-real-hash', 'Trần Văn Minh', '0912345678');
+INSERT INTO users (id, email, password_hash, name, phone) VALUES ('user:huong', 'huong.pham@example.com', 'seed-placeholder-not-a-real-hash', 'Phạm Thị Hương', '0923456789');
+
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, city, country, is_default) VALUES ('addr:0', 'user:lan', 'Nguyễn Thị Lan', '0901234567', '123 Nguyễn Huệ', 'Ho Chi Minh City', 'VN', 1);
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, city, country, is_default) VALUES ('addr:1', 'user:minh', 'Trần Văn Minh', '0912345678', '45 Lê Lợi', 'Ho Chi Minh City', 'VN', 1);
+INSERT INTO addresses (id, user_id, recipient_name, phone, line1, city, country, is_default) VALUES ('addr:2', 'user:huong', 'Phạm Thị Hương', '0923456789', '78 Trần Hưng Đạo', 'Ho Chi Minh City', 'VN', 1);
+
+INSERT INTO orders (id, order_number, user_id, status, shipping_address_id, subtotal, shipping_fee, discount_total, total, payment_method, placed_at) VALUES ('order:PV-000001', 'PV-000001', 'user:lan', 'delivered', 'addr:0', 183000, 0, 0, 183000, 'cod', '2026-06-20 09:15:00');
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000001:0', 'order:PV-000001', 'prod:caryophy-skin-repair-mask-sheet-25g', 'Skin Repair Sheet Mask 25g', 22000, 2, 44000);
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000001:1', 'order:PV-000001', 'prod:brightening-sunscreen-spf50-pa-50ml', 'Brightening Sunscreen SPF50+ PA++++ 50ml', 139000, 1, 139000);
+
+INSERT INTO orders (id, order_number, user_id, status, shipping_address_id, subtotal, shipping_fee, discount_total, total, payment_method, placed_at) VALUES ('order:PV-000002', 'PV-000002', 'user:minh', 'shipped', 'addr:1', 569000, 20000, 0, 589000, 'bank_transfer', '2026-07-01 14:30:00');
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000002:0', 'order:PV-000002', 'prod:vitamin-c-brightening-serum-30ml', 'Vitamin C Brightening Serum 30ml', 259000, 1, 259000);
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000002:1', 'order:PV-000002', 'prod:velvet-lip-tint', 'Velvet Lip Tint', 310000, 1, 310000);
+
+INSERT INTO orders (id, order_number, user_id, status, shipping_address_id, subtotal, shipping_fee, discount_total, total, payment_method, placed_at) VALUES ('order:PV-000003', 'PV-000003', 'user:huong', 'paid', 'addr:2', 447000, 20000, 0, 467000, 'card', '2026-07-05 11:00:00');
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000003:0', 'order:PV-000003', 'prod:moisturizing-lip-balm-stick-4g', 'Moisturizing Lip Balm Stick 4g', 149000, 3, 447000);
+
+INSERT INTO orders (id, order_number, user_id, status, shipping_address_id, subtotal, shipping_fee, discount_total, total, payment_method, placed_at) VALUES ('order:PV-000004', 'PV-000004', 'user:lan', 'pending', 'addr:0', 22000, 20000, 0, 42000, 'cod', '2026-07-12 16:45:00');
+INSERT INTO order_items (id, order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, line_total) VALUES ('orderitem:PV-000004:0', 'order:PV-000004', 'prod:caryophy-skin-repair-mask-sheet-25g', 'Skin Repair Sheet Mask 25g', 22000, 1, 22000);
+

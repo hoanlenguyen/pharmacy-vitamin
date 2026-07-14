@@ -28,7 +28,7 @@
 
     <!-- Category: product grid -->
     <div v-if="config.type === 'category'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-      <ProductCard v-for="product in catalog" :key="product.name" :product="product" />
+      <ProductCard v-for="product in categoryProducts" :key="product.slug ?? product.name" :product="product" />
     </div>
 
     <!-- Blog: article card grid -->
@@ -94,8 +94,8 @@
 
 <script setup lang="ts">
 import { Check, ChevronRight, Image as ImageIcon, Mail } from '@lucide/vue'
-import { catalog } from '~/data/catalog'
 import { getMockRouteConfig, humanize } from '~/data/mockRoutes'
+import type { Product } from '~/components/ProductCard.vue'
 
 const route = useRoute()
 
@@ -117,6 +117,22 @@ const config = computed(() => getMockRouteConfig(segments.value[0] ?? ''))
 const pageTitle = computed(() => humanize(segments.value[segments.value.length - 1] ?? 'Page'))
 
 useHead({ title: computed(() => `${pageTitle.value} — Pharmacy Vitamin`) })
+
+// Try the deepest segment as a real category slug first (e.g. skin-care/moisturizing/masks -> "masks").
+// Nav items like "Flash Deals"/"Combos"/"Clearance" aren't real categories, so when that filter
+// comes back empty, fall back to the general pool sorted by biggest discount.
+const { data: categoryProducts } = await useAsyncData<Product[]>(
+  computed(() => `category-products-${segments.value.join('-') || 'none'}`),
+  async () => {
+    if (config.value.type !== 'category') return []
+    const lastSegment = segments.value[segments.value.length - 1]
+    const primary = await $fetch<{ items: Product[] }>('/api/products', { query: { category: lastSegment, limit: 15 } })
+    if (primary.items.length > 0) return primary.items
+    const fallback = await $fetch<{ items: Product[] }>('/api/products', { query: { sort: 'discount', limit: 15 } })
+    return fallback.items
+  },
+  { watch: [segments] }
+)
 
 // TODO: replace with real posts once a blog/CMS exists.
 const blogPosts = [

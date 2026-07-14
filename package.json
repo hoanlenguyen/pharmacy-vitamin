@@ -12,16 +12,23 @@
     "db:migrate:local": "wrangler d1 migrations apply pharmacy-vitamin-db --local",
     "db:seed:local": "wrangler d1 execute pharmacy-vitamin-db --local --file db/seed.sql",
     "db:migrate:remote": "wrangler d1 migrations apply pharmacy-vitamin-db --remote",
-    "db:seed:remote": "wrangler d1 execute pharmacy-vitamin-db --remote --file db/seed.sql"
+    "db:seed:remote": "wrangler d1 execute pharmacy-vitamin-db --remote --file db/seed.sql",
+    "worker:dev": "wrangler dev --local",
+    "worker:deploy": "wrangler deploy"
   },
   "dependencies": {
     "@lucide/vue": "^1.24.0",
+    "hono": "^4.12.30",
     "nuxt": "^3.13.0",
     "vue": "^3.4.0",
     "vue-router": "^4.4.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260713.1",
     "@nuxtjs/tailwindcss": "^6.12.0",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.7",
     "wrangler": "^4.110.0"
   }
 }

@@ -5,7 +5,7 @@
   <div class="flex min-h-screen flex-col">
     <AnnouncementBar />
     <TheHeader />
-    <TopLinkRow />
+    <!-- <TopLinkRow /> -->
     <MegaMenu />
 
     <main class="flex-1">
