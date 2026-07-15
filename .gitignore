@@ -150,6 +150,7 @@ vite.config.ts.timestamp-*
 !.dev.vars.example
 
 # Local development files
+.github/prompts/
 .agents/
 .augment/
 .claude/
