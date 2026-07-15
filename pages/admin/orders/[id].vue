@@ -35,6 +35,7 @@
           >
             {{ order.customerName }}
           </NuxtLink>
+          <p v-else-if="order.customerName" class="font-medium text-gray-800">{{ order.customerName }} <span class="text-xs font-normal text-gray-400">(guest)</span></p>
           <p class="text-sm text-gray-500">{{ order.customerEmail }}</p>
           <p class="text-sm text-gray-500">{{ order.customerPhone }}</p>
         </div>

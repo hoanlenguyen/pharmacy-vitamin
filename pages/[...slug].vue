@@ -27,9 +27,19 @@
     </div>
 
     <!-- Category: product grid -->
-    <div v-if="config.type === 'category'" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-      <ProductCard v-for="product in categoryProducts" :key="product.slug ?? product.name" :product="product" />
-    </div>
+    <template v-if="config.type === 'category'">
+      <div class="flex flex-col gap-6 lg:flex-row">
+        <div class="min-w-0 flex-1">
+          <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <ProductCard v-for="product in categoryProducts" :key="product.slug ?? product.name" :product="product" />
+          </div>
+          <Pagination :page="page" :total-pages="categoryTotalPages" @update:page="goToCategoryPage" />
+        </div>
+        <aside class="w-full shrink-0 lg:w-64">
+          <RecentlyViewedWidget />
+        </aside>
+      </div>
+    </template>
 
     <!-- Blog: article card grid -->
     <div v-else-if="config.type === 'blog'" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -118,21 +128,36 @@ const pageTitle = computed(() => humanize(segments.value[segments.value.length -
 
 useHead({ title: computed(() => `${pageTitle.value} — Pharmacy Vitamin`) })
 
+const PAGE_SIZE = 15
+const page = computed(() => Math.max(1, Number(route.query.page ?? 1) || 1))
+
 // Try the deepest segment as a real category slug first (e.g. skin-care/moisturizing/masks -> "masks").
 // Nav items like "Flash Deals"/"Combos"/"Clearance" aren't real categories, so when that filter
 // comes back empty, fall back to the general pool sorted by biggest discount.
-const { data: categoryProducts } = await useAsyncData<Product[]>(
-  computed(() => `category-products-${segments.value.join('-') || 'none'}`),
+const { data: categoryResult } = await useAsyncData<{ items: Product[]; total: number }>(
+  computed(() => `category-products-${segments.value.join('-') || 'none'}-${page.value}`),
   async () => {
-    if (config.value.type !== 'category') return []
+    if (config.value.type !== 'category') return { items: [], total: 0 }
     const lastSegment = segments.value[segments.value.length - 1]
-    const primary = await $fetch<{ items: Product[] }>('/api/products', { query: { category: lastSegment, limit: 15 } })
-    if (primary.items.length > 0) return primary.items
-    const fallback = await $fetch<{ items: Product[] }>('/api/products', { query: { sort: 'discount', limit: 15 } })
-    return fallback.items
+    const offset = (page.value - 1) * PAGE_SIZE
+    const primary = await $fetch<{ items: Product[]; total: number }>('/api/products', {
+      query: { category: lastSegment, limit: PAGE_SIZE, offset }
+    })
+    if (primary.total > 0) return primary
+    const fallback = await $fetch<{ items: Product[]; total: number }>('/api/products', {
+      query: { sort: 'discount', limit: PAGE_SIZE, offset }
+    })
+    return fallback
   },
-  { watch: [segments] }
+  { watch: [segments, page] }
 )
+
+const categoryProducts = computed(() => categoryResult.value?.items ?? [])
+const categoryTotalPages = computed(() => Math.max(1, Math.ceil((categoryResult.value?.total ?? 0) / PAGE_SIZE)))
+
+function goToCategoryPage(nextPage: number) {
+  navigateTo({ path: route.path, query: { ...route.query, page: nextPage } })
+}
 
 // TODO: replace with real posts once a blog/CMS exists.
 const blogPosts = [

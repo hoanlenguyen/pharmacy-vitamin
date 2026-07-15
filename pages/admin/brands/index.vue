@@ -29,7 +29,16 @@
           <tr v-for="item in brands" :key="item.id">
             <td class="px-4 py-3 font-medium text-gray-800">{{ item.name }}</td>
             <td class="px-4 py-3 text-gray-500">{{ item.slug }}</td>
-            <td class="px-4 py-3 text-gray-500">{{ item.productCount }}</td>
+            <td class="px-4 py-3">
+              <NuxtLink
+                v-if="item.productCount > 0"
+                :to="`/admin?brand=${item.slug}`"
+                class="text-rose-600 hover:underline"
+              >
+                {{ item.productCount }}
+              </NuxtLink>
+              <span v-else class="text-gray-500">0</span>
+            </td>
             <td class="px-4 py-3">
               <div class="flex items-center justify-end gap-3">
                 <NuxtLink :to="`/admin/brands/${item.slug}/edit`" class="text-gray-400 hover:text-rose-600" aria-label="Edit">

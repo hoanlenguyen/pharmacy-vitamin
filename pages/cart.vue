@@ -42,13 +42,12 @@
           </div>
 
           <NuxtLink
-            to="#"
+            to="/checkout"
             class="mt-5 flex items-center justify-center gap-2 rounded-full bg-rose-gradient px-6 py-2.5 text-sm font-semibold text-white shadow-card transition-opacity hover:opacity-90"
           >
             <Lock class="h-4 w-4" aria-hidden="true" />
             Proceed to Checkout
           </NuxtLink>
-          <p class="mt-2 text-center text-[11px] text-gray-400">Demo checkout — no payment backend wired up yet.</p>
 
           <NuxtLink to="/" class="mt-4 flex items-center justify-center gap-1.5 text-sm font-medium text-rose-600 hover:underline">
             <ArrowLeft class="h-3.5 w-3.5" aria-hidden="true" />

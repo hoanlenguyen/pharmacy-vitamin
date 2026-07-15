@@ -4,13 +4,33 @@ import { requireBearerToken } from '../lib/auth'
 
 export const brands = new Hono<{ Bindings: Bindings }>()
 
-// GET /brands — public, minimal fields for storefront dropdowns.
+// GET /brands — public directory: name + product count for each brand.
 brands.get('/', async c => {
-  const { results } = await c.env.DB.prepare('SELECT slug, name FROM brands ORDER BY name').all<{
-    slug: string
-    name: string
-  }>()
+  const { results } = await c.env.DB.prepare(
+    `SELECT b.slug, b.name, b.description, b.logo_url AS logoUrl,
+            (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id AND p.status = 'active') AS productCount
+     FROM brands b
+     ORDER BY b.name`
+  ).all()
   return c.json({ brands: results })
+})
+
+// GET /brands/:slug — public single-brand detail, for the storefront brand page header.
+brands.get('/:slug', async c => {
+  const slug = c.req.param('slug')
+  const brand = await c.env.DB.prepare(
+    `SELECT b.slug, b.name, b.description, b.logo_url AS logoUrl,
+            (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id AND p.status = 'active') AS productCount
+     FROM brands b WHERE b.slug = ?1`
+  )
+    .bind(slug)
+    .first()
+
+  if (!brand) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  return c.json(brand)
 })
 
 export const adminBrands = new Hono<{ Bindings: Bindings }>()

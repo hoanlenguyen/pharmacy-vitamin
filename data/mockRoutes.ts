@@ -86,12 +86,6 @@ export const mockRouteConfig: Record<string, MockRouteConfig> = {
     description: 'Accepted payment methods, including cash on delivery.',
     highlights: ['Cash on delivery', 'Credit & debit cards', 'Bank transfer']
   },
-  brands: {
-    type: 'content',
-    icon: Award,
-    description: 'Browse authentic products by brand.',
-    highlights: ['100+ authentic beauty and wellness brands', 'Direct partnerships, no gray-market imports', 'New brands added every month']
-  },
   membership: {
     type: 'content',
     icon: Gift,

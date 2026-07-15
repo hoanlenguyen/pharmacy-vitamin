@@ -16,29 +16,31 @@
       </NuxtLink>
 
       <!-- Search + category scope -->
-      <div class="hidden flex-1 items-center md:flex">
+      <form class="hidden flex-1 items-center md:flex" @submit.prevent="handleSearch">
         <select
           v-model="selectedCategory"
           aria-label="Search category"
           class="rounded-l-full border border-r-0 border-gray-300 bg-gray-50 py-2.5 pl-4 pr-8 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-rose-400"
+          @change="handleCategoryChange"
         >
           <option value="all">All Categories</option>
-          <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+          <option v-for="cat in categories" :key="cat.slug" :value="cat.slug">{{ cat.label }}</option>
         </select>
         <input
+          v-model="searchQuery"
           type="text"
           placeholder="Search for products..."
           class="flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
         />
         <button
-          type="button"
+          type="submit"
           aria-label="Search"
           class="flex items-center gap-1.5 rounded-r-full bg-rose-gradient px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
           <Search class="h-4 w-4" aria-hidden="true" />
           Search
         </button>
-      </div>
+      </form>
 
       <!-- Account + cart -->
       <div class="ml-auto flex shrink-0 items-center gap-5 text-sm">
@@ -67,8 +69,36 @@
 import { Flower2, Search, ShoppingBag, User } from '@lucide/vue'
 
 // Placeholder category list — replace with real taxonomy data.
-const categories = ['Makeup', 'Skin Care', 'Personal Care', 'Supplements', 'Beauty Tools']
+const categories = [
+  { label: 'Makeup', slug: 'makeup' },
+  { label: 'Skin Care', slug: 'skin-care' },
+  { label: 'Personal Care', slug: 'personal-care' },
+  { label: 'Supplements', slug: 'supplements' },
+  { label: 'Beauty Tools', slug: 'beauty-tools' }
+]
 const selectedCategory = ref('all')
+const searchQuery = ref('')
+
+// Picking a category alone (no search text) browses straight to that category's listing.
+function handleCategoryChange() {
+  if (selectedCategory.value !== 'all') {
+    navigateTo(`/${selectedCategory.value}`)
+  }
+}
+
+// Enter or clicking Search always goes to the search results page; if a
+// category scope is selected it's carried along as a filter.
+function handleSearch() {
+  const query = searchQuery.value.trim()
+  if (!query) return
+  navigateTo({
+    path: '/search',
+    query: {
+      q: query,
+      ...(selectedCategory.value !== 'all' ? { category: selectedCategory.value } : {})
+    }
+  })
+}
 
 const { count: cartCount } = useCart()
 </script>

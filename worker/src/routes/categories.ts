@@ -4,18 +4,24 @@ import { requireBearerToken } from '../lib/auth'
 
 export const categories = new Hono<{ Bindings: Bindings }>()
 
-type CategoryRow = { id: string; slug: string; name: string; parentId: string | null }
-type CategoryNode = { slug: string; name: string; children: CategoryNode[] }
+type CategoryRow = { id: string; slug: string; name: string; parentId: string | null; productCount: number }
+type CategoryNode = { slug: string; name: string; productCount: number; children: CategoryNode[] }
 
-// GET /categories — nested tree, top-level categories first.
+// GET /categories — nested tree, top-level categories first. productCount is the number of
+// active products directly tagged to that category (not summed across its subcategories).
 categories.get('/', async c => {
   const { results } = await c.env.DB.prepare(
-    `SELECT id, slug, name, parent_id AS parentId FROM categories ORDER BY sort_order, name`
+    `SELECT c.id, c.slug, c.name, c.parent_id AS parentId,
+            (SELECT COUNT(*) FROM product_categories pc
+             JOIN products p ON p.id = pc.product_id
+             WHERE pc.category_id = c.id AND p.status = 'active') AS productCount
+     FROM categories c
+     ORDER BY c.sort_order, c.name`
   ).all<CategoryRow>()
 
   const nodeBySlug = new Map<string, CategoryNode>()
   for (const row of results) {
-    nodeBySlug.set(row.id, { slug: row.slug, name: row.name, children: [] })
+    nodeBySlug.set(row.id, { slug: row.slug, name: row.name, productCount: row.productCount, children: [] })
   }
 
   const roots: CategoryNode[] = []

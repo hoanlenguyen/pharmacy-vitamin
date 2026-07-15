@@ -13,5 +13,6 @@
     </main>
 
     <TheFooter />
+    <ContactStickers />
   </div>
 </template>

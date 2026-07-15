@@ -28,20 +28,25 @@ async function setPrimaryImage(db: D1Database, productId: string, url: string, a
     .run()
 }
 
-// GET /admin/products — full listing, all statuses, admin-relevant columns.
+// GET /admin/products?brand=<slug> — full listing, all statuses, admin-relevant columns.
 admin.get('/products', async c => {
+  const brand = c.req.query('brand') ?? null
+
   const { results } = await c.env.DB.prepare(
     `SELECT
        p.id, p.slug, p.name, p.price,
        p.compare_at_price AS compareAtPrice,
        p.status, p.sold_count AS soldCount,
-       b.name AS brandName,
+       b.name AS brandName, b.slug AS brandSlug,
        (SELECT cat.name FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
         WHERE pc.product_id = p.id AND pc.is_primary = 1 LIMIT 1) AS primaryCategory
      FROM products p
      LEFT JOIN brands b ON b.id = p.brand_id
+     WHERE (?1 IS NULL OR b.slug = ?1)
      ORDER BY p.name ASC`
-  ).all()
+  )
+    .bind(brand)
+    .all()
 
   return c.json({ items: results })
 })

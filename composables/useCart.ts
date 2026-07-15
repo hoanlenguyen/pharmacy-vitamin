@@ -31,8 +31,12 @@ export function useCart() {
     if (line) line.quantity = Math.max(1, quantity)
   }
 
+  function clear() {
+    items.value = []
+  }
+
   const count = computed(() => items.value.reduce((sum, line) => sum + line.quantity, 0))
   const subtotal = computed(() => items.value.reduce((sum, line) => sum + line.price * line.quantity, 0))
 
-  return { items, addItem, removeItem, updateQuantity, count, subtotal }
+  return { items, addItem, removeItem, updateQuantity, clear, count, subtotal }
 }

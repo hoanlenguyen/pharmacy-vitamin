@@ -19,37 +19,90 @@ type ProductListRow = {
   imageUrl: string | null
 }
 
-// GET /products?category=<slug>&limit=20&offset=0&sort=sold|discount
+// Effective list price for a product — the lowest variant price if it has variants,
+// otherwise its own price. Kept as one expression so filtering/sorting/display all agree.
+const EFFECTIVE_PRICE = `COALESCE((SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.id), p.price)`
+
+// GET /products?category=<slug>&brand=<slug>&q=<text>&slugs=<a,b,c>&minPrice=&maxPrice=
+//              &limit=20&offset=0&sort=sold|discount|price_asc|price_desc
 products.get('/', async c => {
   const category = c.req.query('category') ?? null
+  const brand = c.req.query('brand') ?? null
+  const q = c.req.query('q')?.trim() || null
+  // Distinguish "no slugs= param at all" (don't filter) from "slugs= present but empty"
+  // (filter to nothing) — otherwise an empty Recently Viewed list would silently fall back
+  // to returning every product instead of none.
+  const slugsParam = c.req.query('slugs')
+  const slugsJson =
+    slugsParam !== undefined
+      ? JSON.stringify(
+          slugsParam
+            .split(',')
+            .map(s => s.trim())
+            .filter(Boolean)
+        )
+      : null
+  const minPrice = c.req.query('minPrice') !== undefined ? Number(c.req.query('minPrice')) : null
+  const maxPrice = c.req.query('maxPrice') !== undefined ? Number(c.req.query('maxPrice')) : null
   const limit = Math.min(Number(c.req.query('limit') ?? 20) || 20, 100)
   const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0)
-  const sort = c.req.query('sort') === 'discount' ? 'discount' : 'sold'
+  const sort = c.req.query('sort')
   const orderBy =
     sort === 'discount'
       ? `(p.compare_at_price - p.price) IS NOT NULL DESC, (p.compare_at_price - p.price) DESC`
-      : `p.sold_count DESC, p.name ASC`
+      : sort === 'price_asc'
+        ? `${EFFECTIVE_PRICE} ASC`
+        : sort === 'price_desc'
+          ? `${EFFECTIVE_PRICE} DESC`
+          : `p.sold_count DESC, p.name ASC`
 
-  const { results } = await c.env.DB.prepare(
-    `SELECT
-       p.id, p.slug, p.name, p.price,
-       p.compare_at_price AS compareAtPrice,
-       p.rating_avg AS ratingAvg, p.rating_count AS ratingCount, p.sold_count AS soldCount,
-       (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.id) AS variantMinPrice,
-       (SELECT MAX(v.price) FROM product_variants v WHERE v.product_id = p.id) AS variantMaxPrice,
-       EXISTS(SELECT 1 FROM product_variants v WHERE v.product_id = p.id) AS hasVariants,
-       (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order LIMIT 1) AS imageUrl
-     FROM products p
-     WHERE p.status = 'active'
-       AND (?1 IS NULL OR EXISTS (
-         SELECT 1 FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
-         WHERE pc.product_id = p.id AND cat.slug = ?1
-       ))
-     ORDER BY ${orderBy}
-     LIMIT ?2 OFFSET ?3`
-  )
-    .bind(category, limit, offset)
-    .all<ProductListRow>()
+  // Filters shared by the bounds/count/results queries below so they never drift out of
+  // sync — ?1/?2/?3/?4 are the catalog filters (category/brand/q/slugs). Price bounds are
+  // computed over this same filtered set (excluding the price filter itself, ?5/?6), so the
+  // slider's min/max stay stable while the price handles move.
+  const baseWhereSql = `
+    p.status = 'active'
+    AND (?1 IS NULL OR EXISTS (
+      SELECT 1 FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
+      WHERE pc.product_id = p.id AND cat.slug = ?1
+    ))
+    AND (?2 IS NULL OR br.slug = ?2)
+    AND (?3 IS NULL OR p.name LIKE '%' || ?3 || '%')
+    AND (?4 IS NULL OR p.slug IN (SELECT value FROM json_each(?4)))
+  `
+  const whereSql = `${baseWhereSql} AND (?5 IS NULL OR ${EFFECTIVE_PRICE} >= ?5) AND (?6 IS NULL OR ${EFFECTIVE_PRICE} <= ?6)`
+
+  const [countRow, boundsRow, { results }] = await Promise.all([
+    c.env.DB
+      .prepare(`SELECT COUNT(*) AS total FROM products p LEFT JOIN brands br ON br.id = p.brand_id WHERE ${whereSql}`)
+      .bind(category, brand, q, slugsJson, minPrice, maxPrice)
+      .first<{ total: number }>(),
+    c.env.DB
+      .prepare(
+        `SELECT MIN(${EFFECTIVE_PRICE}) AS min, MAX(${EFFECTIVE_PRICE}) AS max
+         FROM products p LEFT JOIN brands br ON br.id = p.brand_id WHERE ${baseWhereSql}`
+      )
+      .bind(category, brand, q, slugsJson)
+      .first<{ min: number | null; max: number | null }>(),
+    c.env.DB
+      .prepare(
+        `SELECT
+           p.id, p.slug, p.name, p.price,
+           p.compare_at_price AS compareAtPrice,
+           p.rating_avg AS ratingAvg, p.rating_count AS ratingCount, p.sold_count AS soldCount,
+           (SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.id) AS variantMinPrice,
+           (SELECT MAX(v.price) FROM product_variants v WHERE v.product_id = p.id) AS variantMaxPrice,
+           EXISTS(SELECT 1 FROM product_variants v WHERE v.product_id = p.id) AS hasVariants,
+           (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order LIMIT 1) AS imageUrl
+         FROM products p
+         LEFT JOIN brands br ON br.id = p.brand_id
+         WHERE ${whereSql}
+         ORDER BY ${orderBy}
+         LIMIT ?7 OFFSET ?8`
+      )
+      .bind(category, brand, q, slugsJson, minPrice, maxPrice, limit, offset)
+      .all<ProductListRow>()
+  ])
 
   const items = results.map(row => ({
     id: row.id,
@@ -67,7 +120,20 @@ products.get('/', async c => {
     imageUrl: row.imageUrl ?? undefined
   }))
 
-  return c.json({ items, limit, offset })
+  // If slugs= was requested, the caller (e.g. the Recently Viewed widget) usually wants
+  // its own ordering preserved rather than the SQL result order.
+  if (slugsParam) {
+    const order = slugsParam.split(',').map(s => s.trim())
+    items.sort((a, b) => order.indexOf(a.slug) - order.indexOf(b.slug))
+  }
+
+  return c.json({
+    items,
+    limit,
+    offset,
+    total: countRow?.total ?? 0,
+    priceBounds: { min: boundsRow?.min ?? 0, max: boundsRow?.max ?? 0 }
+  })
 })
 
 // GET /products/:slug
@@ -79,7 +145,7 @@ products.get('/:slug', async c => {
        p.id, p.slug, p.name, p.sku, p.summary, p.price,
        p.compare_at_price AS compareAtPrice,
        p.rating_avg AS ratingAvg, p.rating_count AS ratingCount, p.sold_count AS soldCount,
-       b.name AS brandName
+       b.name AS brandName, b.slug AS brandSlug
      FROM products p
      LEFT JOIN brands b ON b.id = p.brand_id
      WHERE p.slug = ?1 AND p.status = 'active'`
@@ -97,6 +163,7 @@ products.get('/:slug', async c => {
       ratingCount: number
       soldCount: number
       brandName: string | null
+      brandSlug: string | null
     }>()
 
   if (!product) {
@@ -141,6 +208,7 @@ products.get('/:slug', async c => {
     slug: product.slug,
     name: product.name,
     brand: product.brandName ?? undefined,
+    brandSlug: product.brandSlug ?? undefined,
     sku: product.sku ?? undefined,
     price: product.price,
     originalPrice: product.compareAtPrice ?? undefined,

@@ -97,7 +97,12 @@
           </div>
           <div v-if="product.brand" class="flex gap-2">
             <dt class="font-medium text-gray-600">Brand:</dt>
-            <dd>{{ product.brand }}</dd>
+            <dd>
+              <NuxtLink v-if="product.brandSlug" :to="`/brands/${product.brandSlug}`" class="text-rose-600 hover:underline">
+                {{ product.brand }}
+              </NuxtLink>
+              <template v-else>{{ product.brand }}</template>
+            </dd>
           </div>
         </dl>
       </div>
@@ -192,6 +197,7 @@ type ProductDetail = {
   slug: string
   name: string
   brand?: string
+  brandSlug?: string
   sku?: string
   price: number
   originalPrice?: number
@@ -227,6 +233,22 @@ const quantity = ref(1)
 const justAdded = ref(false)
 const selectedVariantId = ref<string>()
 const { addItem } = useCart()
+const { recordView } = useRecentlyViewed()
+
+// Registered inside onMounted so it runs after useRecentlyViewed's own onMounted has
+// hydrated `slugs` from localStorage — otherwise this fires first (watch+immediate runs
+// synchronously during setup, before onMounted) and clobbers history with a single item.
+// The watch (not a one-shot call) still matters because this page's component instance is
+// reused across client-side navigation between two products (same dynamic route).
+onMounted(() => {
+  watch(
+    () => product.value?.slug,
+    slug => {
+      if (slug) recordView(slug)
+    },
+    { immediate: true }
+  )
+})
 
 watchEffect(() => {
   if (product.value?.variants?.length && !selectedVariantId.value) {

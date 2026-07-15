@@ -7,6 +7,7 @@ import { admin } from './routes/admin'
 import { images } from './routes/images'
 import { adminUsers } from './routes/adminUsers'
 import { adminOrders } from './routes/adminOrders'
+import { orders } from './routes/orders'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -20,6 +21,7 @@ app.route('/admin/brands', adminBrands)
 app.route('/admin/categories', adminCategories)
 app.route('/admin/users', adminUsers)
 app.route('/admin/orders', adminOrders)
+app.route('/orders', orders)
 app.route('/images', images)
 
 export default app
