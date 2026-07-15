@@ -43,16 +43,41 @@ type BrandBody = {
   logoUrl?: string | null
 }
 
-// GET /admin/brands
-adminBrands.get('/', async c => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT b.id, b.slug, b.name, b.description, b.logo_url AS logoUrl,
-            (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id) AS productCount
-     FROM brands b
-     ORDER BY b.name`
-  ).all()
+// Whitelisted so sortBy can never inject arbitrary SQL — only these columns are sortable.
+const BRAND_SORT_COLUMNS: Record<string, string> = {
+  name: 'b.name',
+  slug: 'b.slug',
+  productCount: 'productCount'
+}
 
-  return c.json({ items: results })
+// GET /admin/brands?q=<text>&sortBy=&sortDir=&limit=10&offset=0
+adminBrands.get('/', async c => {
+  const q = c.req.query('q')?.trim() || null
+  const limit = Math.min(Number(c.req.query('limit') ?? 10) || 10, 100)
+  const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0)
+  const sortColumn = BRAND_SORT_COLUMNS[c.req.query('sortBy') ?? ''] ?? BRAND_SORT_COLUMNS.name
+  const sortDir = c.req.query('sortDir') === 'desc' ? 'DESC' : 'ASC'
+  const orderBy = `${sortColumn} ${sortDir}${sortColumn === BRAND_SORT_COLUMNS.name ? '' : ', b.name ASC'}`
+
+  const [countRow, { results }] = await Promise.all([
+    c.env.DB
+      .prepare(`SELECT COUNT(*) AS total FROM brands b WHERE (?1 IS NULL OR b.name LIKE '%' || ?1 || '%')`)
+      .bind(q)
+      .first<{ total: number }>(),
+    c.env.DB
+      .prepare(
+        `SELECT b.id, b.slug, b.name, b.description, b.logo_url AS logoUrl,
+                (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id) AS productCount
+         FROM brands b
+         WHERE (?1 IS NULL OR b.name LIKE '%' || ?1 || '%')
+         ORDER BY ${orderBy}
+         LIMIT ?2 OFFSET ?3`
+      )
+      .bind(q, limit, offset)
+      .all()
+  ])
+
+  return c.json({ items: results, total: countRow?.total ?? 0, limit, offset })
 })
 
 // POST /admin/brands

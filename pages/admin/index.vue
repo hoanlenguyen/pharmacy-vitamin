@@ -26,6 +26,10 @@
       </span>
     </div>
 
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <AdminSearchInput v-model="nameFilter" placeholder="Search products by name…" />
+    </div>
+
     <p v-if="pending" class="text-sm text-gray-400">Loading…</p>
     <p v-else-if="error" class="text-sm text-red-600">Failed to load products: {{ error.message }}</p>
     <p v-else-if="products.length === 0" class="text-sm text-gray-400">No products found.</p>
@@ -34,12 +38,12 @@
       <table class="w-full text-left text-sm">
         <thead class="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
           <tr>
-            <th class="px-4 py-3">Name</th>
-            <th class="px-4 py-3">Brand</th>
+            <AdminSortableTh label="Name" sort-key="name" :active-sort-by="sortBy" :active-sort-dir="sortDir" @sort="setSort" />
+            <AdminSortableTh label="Brand" sort-key="brandName" :active-sort-by="sortBy" :active-sort-dir="sortDir" @sort="setSort" />
             <th class="px-4 py-3">Category</th>
-            <th class="px-4 py-3">Price</th>
-            <th class="px-4 py-3">Status</th>
-            <th class="px-4 py-3">Sold</th>
+            <AdminSortableTh label="Price" sort-key="price" :active-sort-by="sortBy" :active-sort-dir="sortDir" @sort="setSort" />
+            <AdminSortableTh label="Status" sort-key="status" :active-sort-by="sortBy" :active-sort-dir="sortDir" @sort="setSort" />
+            <AdminSortableTh label="Sold" sort-key="soldCount" :active-sort-by="sortBy" :active-sort-dir="sortDir" @sort="setSort" />
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
@@ -67,6 +71,8 @@
         </tbody>
       </table>
     </div>
+
+    <Pagination :page="page" :total-pages="totalPages" @update:page="page = $event" />
   </div>
 </template>
 
@@ -74,6 +80,8 @@
 import { Pencil, Plus, Trash2, X } from '@lucide/vue'
 
 definePageMeta({ layout: 'admin' })
+
+const PAGE_SIZE = 10
 
 type AdminProduct = {
   id: string
@@ -96,7 +104,14 @@ const brandFilter = computed(() => (typeof route.query.brand === 'string' ? rout
 // if the filter matched nothing (e.g. a brand with no products left).
 const brandFilterLabel = computed(() => products.value.find(p => p.brandSlug === brandFilter.value)?.brandName ?? brandFilter.value)
 
+const nameFilter = ref('')
+const sortBy = ref('name')
+const sortDir = ref<'asc' | 'desc'>('asc')
+const page = ref(1)
+
 const products = ref<AdminProduct[]>([])
+const total = ref(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 const pending = ref(false)
 const error = ref<Error | null>(null)
 
@@ -104,11 +119,19 @@ async function loadProducts() {
   pending.value = true
   error.value = null
   try {
-    const data = await $fetch<{ items: AdminProduct[] }>('/api/admin/products', {
+    const data = await $fetch<{ items: AdminProduct[]; total: number }>('/api/admin/products', {
       headers: authHeaders(),
-      query: brandFilter.value ? { brand: brandFilter.value } : undefined
+      query: {
+        brand: brandFilter.value,
+        q: nameFilter.value || undefined,
+        sortBy: sortBy.value,
+        sortDir: sortDir.value,
+        limit: PAGE_SIZE,
+        offset: (page.value - 1) * PAGE_SIZE
+      }
     })
     products.value = data.items
+    total.value = data.total
   } catch (err: any) {
     error.value = err
   } finally {
@@ -122,6 +145,15 @@ async function handleDelete(slug: string) {
   await loadProducts()
 }
 
+function setSort(key: string) {
+  if (sortBy.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortBy.value = key
+    sortDir.value = 'asc'
+  }
+}
+
 // isAuthenticated only becomes true after mount (see useAdminAuth.ts's hydration
 // note), so redirect/load reactively rather than checking once synchronously here —
 // otherwise a page refresh with an already-valid session token would misfire.
@@ -130,6 +162,13 @@ onMounted(() => {
 })
 watch(isAuthenticated, value => { if (value) loadProducts() }, { immediate: true })
 watch(brandFilter, () => { if (isAuthenticated.value) loadProducts() })
+watch(page, () => { if (isAuthenticated.value) loadProducts() })
+// A changed name filter or sort invalidates whatever page you were on, so jump back to
+// page 1 rather than risk landing past the end of the new result set.
+watch([nameFilter, sortBy, sortDir], () => {
+  page.value = 1
+  if (isAuthenticated.value) loadProducts()
+})
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US').format(value)

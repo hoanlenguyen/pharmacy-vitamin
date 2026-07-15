@@ -59,6 +59,11 @@
       />
     </label>
 
+    <label class="flex items-center gap-2 text-sm text-gray-700">
+      <input v-model="form.showInMenu" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-rose-500 focus:ring-rose-400" />
+      Show in main navigation menu
+    </label>
+
     <div class="flex items-center gap-3 border-t border-gray-100 pt-5">
       <button
         type="submit"
@@ -85,6 +90,7 @@ export type CategoryFormPayload = {
   parentSlug?: string
   description?: string
   sortOrder?: number
+  showInMenu: boolean
 }
 
 const props = defineProps<{
@@ -101,7 +107,8 @@ const form = reactive<CategoryFormPayload>({
   name: props.initial?.name ?? '',
   parentSlug: props.initial?.parentSlug,
   description: props.initial?.description ?? '',
-  sortOrder: props.initial?.sortOrder ?? 0
+  sortOrder: props.initial?.sortOrder ?? 0,
+  showInMenu: props.initial?.showInMenu ?? true
 })
 
 const { data: categoriesData } = await useFetch<{ categories: CategoryNode[] }>('/api/categories')

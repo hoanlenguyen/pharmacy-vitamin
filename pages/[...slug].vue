@@ -103,9 +103,12 @@
 </template>
 
 <script setup lang="ts">
-import { Check, ChevronRight, Image as ImageIcon, Mail } from '@lucide/vue'
+import { Check, ChevronRight, Image as ImageIcon, Mail, Package } from '@lucide/vue'
 import { getMockRouteConfig, humanize } from '~/data/mockRoutes'
+import type { MockRouteConfig } from '~/data/mockRoutes'
 import type { Product } from '~/components/ProductCard.vue'
+
+type CategoryNode = { slug: string; name: string; description: string | null; showInMenu: boolean; children: CategoryNode[] }
 
 const route = useRoute()
 
@@ -123,8 +126,32 @@ const breadcrumbs = computed(() => {
   })
 })
 
-const config = computed(() => getMockRouteConfig(segments.value[0] ?? ''))
-const pageTitle = computed(() => humanize(segments.value[segments.value.length - 1] ?? 'Page'))
+// Real categories (any depth) come from the DB, not the static mock map — a subcategory
+// like "masks" has no curated entry in data/mockRoutes.ts but should still get the real
+// product-grid treatment (with its own name/description) rather than the generic fallback.
+const { data: categoriesData } = await useFetch<{ categories: CategoryNode[] }>('/api/categories')
+
+const realCategoriesBySlug = computed(() => {
+  const map = new Map<string, CategoryNode>()
+  const walk = (nodes: CategoryNode[]) => {
+    for (const node of nodes) {
+      map.set(node.slug, node)
+      walk(node.children)
+    }
+  }
+  walk(categoriesData.value?.categories ?? [])
+  return map
+})
+
+const matchedCategory = computed(() => realCategoriesBySlug.value.get(segments.value[segments.value.length - 1] ?? ''))
+
+const config = computed<MockRouteConfig>(() => {
+  if (matchedCategory.value) {
+    return { type: 'category', icon: Package, description: matchedCategory.value.description ?? '' }
+  }
+  return getMockRouteConfig(segments.value[0] ?? '')
+})
+const pageTitle = computed(() => matchedCategory.value?.name ?? humanize(segments.value[segments.value.length - 1] ?? 'Page'))
 
 useHead({ title: computed(() => `${pageTitle.value} — Pharmacy Vitamin`) })
 

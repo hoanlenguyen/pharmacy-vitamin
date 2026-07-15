@@ -22,6 +22,7 @@
             <th class="px-4 py-3">Name</th>
             <th class="px-4 py-3">Slug</th>
             <th class="px-4 py-3">Products</th>
+            <th class="px-4 py-3">Menu</th>
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
@@ -35,6 +36,20 @@
             </td>
             <td class="px-4 py-3 text-gray-500">{{ item.slug }}</td>
             <td class="px-4 py-3 text-gray-500">{{ item.productCount }}</td>
+            <td class="px-4 py-3">
+              <button
+                type="button"
+                class="flex items-center gap-1.5 text-xs font-medium"
+                :class="item.showInMenu ? 'text-emerald-600 hover:text-emerald-700' : 'text-gray-400 hover:text-gray-600'"
+                :aria-label="item.showInMenu ? `Hide ${item.name} from menu` : `Show ${item.name} in menu`"
+                :disabled="togglingSlug === item.slug"
+                @click="toggleShowInMenu(item)"
+              >
+                <Eye v-if="item.showInMenu" class="h-4 w-4" aria-hidden="true" />
+                <EyeOff v-else class="h-4 w-4" aria-hidden="true" />
+                {{ item.showInMenu ? 'Visible' : 'Hidden' }}
+              </button>
+            </td>
             <td class="px-4 py-3">
               <div class="flex items-center justify-end gap-3">
                 <NuxtLink :to="`/admin/categories/${item.slug}/edit`" class="text-gray-400 hover:text-rose-600" aria-label="Edit">
@@ -54,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { CornerDownRight, Pencil, Plus, Trash2 } from '@lucide/vue'
+import { CornerDownRight, Eye, EyeOff, Pencil, Plus, Trash2 } from '@lucide/vue'
 
 definePageMeta({ layout: 'admin' })
 
@@ -67,6 +82,7 @@ type AdminCategory = {
   parentSlug: string | null
   productCount: number
   childCount: number
+  showInMenu: 0 | 1
 }
 type TreeRow = AdminCategory & { depth: number }
 
@@ -76,6 +92,23 @@ const categories = ref<AdminCategory[]>([])
 const pending = ref(false)
 const error = ref<Error | null>(null)
 const deleteError = ref('')
+const togglingSlug = ref<string | null>(null)
+
+async function toggleShowInMenu(item: AdminCategory) {
+  togglingSlug.value = item.slug
+  try {
+    await $fetch(`/api/admin/categories/${item.slug}`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: { showInMenu: !item.showInMenu }
+    })
+    item.showInMenu = item.showInMenu ? 0 : 1
+  } catch (err: any) {
+    deleteError.value = err?.data?.statusMessage ?? err?.data?.error ?? 'Failed to update menu visibility.'
+  } finally {
+    togglingSlug.value = null
+  }
+}
 
 async function loadCategories() {
   pending.value = true

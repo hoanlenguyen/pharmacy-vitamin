@@ -28,27 +28,57 @@ async function setPrimaryImage(db: D1Database, productId: string, url: string, a
     .run()
 }
 
-// GET /admin/products?brand=<slug> — full listing, all statuses, admin-relevant columns.
+// Whitelisted so sortBy can never inject arbitrary SQL — only these columns are sortable.
+const PRODUCT_SORT_COLUMNS: Record<string, string> = {
+  name: 'p.name',
+  price: 'p.price',
+  status: 'p.status',
+  soldCount: 'p.sold_count',
+  brandName: 'b.name'
+}
+
+// GET /admin/products?brand=<slug>&flashDeal=true&q=<text>&sortBy=&sortDir=&limit=10&offset=0
 admin.get('/products', async c => {
   const brand = c.req.query('brand') ?? null
+  const q = c.req.query('q')?.trim() || null
+  const flashDeal = c.req.query('flashDeal') === 'true' ? 1 : null
+  const limit = Math.min(Number(c.req.query('limit') ?? 10) || 10, 100)
+  const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0)
+  const sortColumn = PRODUCT_SORT_COLUMNS[c.req.query('sortBy') ?? ''] ?? PRODUCT_SORT_COLUMNS.name
+  const sortDir = c.req.query('sortDir') === 'desc' ? 'DESC' : 'ASC'
+  const orderBy = `${sortColumn} ${sortDir}${sortColumn === PRODUCT_SORT_COLUMNS.name ? '' : ', p.name ASC'}`
 
-  const { results } = await c.env.DB.prepare(
-    `SELECT
-       p.id, p.slug, p.name, p.price,
-       p.compare_at_price AS compareAtPrice,
-       p.status, p.sold_count AS soldCount,
-       b.name AS brandName, b.slug AS brandSlug,
-       (SELECT cat.name FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
-        WHERE pc.product_id = p.id AND pc.is_primary = 1 LIMIT 1) AS primaryCategory
-     FROM products p
-     LEFT JOIN brands b ON b.id = p.brand_id
-     WHERE (?1 IS NULL OR b.slug = ?1)
-     ORDER BY p.name ASC`
-  )
-    .bind(brand)
-    .all()
+  const whereSql = `
+    (?1 IS NULL OR b.slug = ?1)
+    AND (?2 IS NULL OR p.name LIKE '%' || ?2 || '%')
+    AND (?3 IS NULL OR p.is_flash_deal = ?3)
+  `
 
-  return c.json({ items: results })
+  const [countRow, { results }] = await Promise.all([
+    c.env.DB
+      .prepare(`SELECT COUNT(*) AS total FROM products p LEFT JOIN brands b ON b.id = p.brand_id WHERE ${whereSql}`)
+      .bind(brand, q, flashDeal)
+      .first<{ total: number }>(),
+    c.env.DB
+      .prepare(
+        `SELECT
+           p.id, p.slug, p.name, p.price,
+           p.compare_at_price AS compareAtPrice,
+           p.status, p.sold_count AS soldCount, p.is_flash_deal AS isFlashDeal,
+           b.name AS brandName, b.slug AS brandSlug,
+           (SELECT cat.name FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
+            WHERE pc.product_id = p.id AND pc.is_primary = 1 LIMIT 1) AS primaryCategory
+         FROM products p
+         LEFT JOIN brands b ON b.id = p.brand_id
+         WHERE ${whereSql}
+         ORDER BY ${orderBy}
+         LIMIT ?4 OFFSET ?5`
+      )
+      .bind(brand, q, flashDeal, limit, offset)
+      .all()
+  ])
+
+  return c.json({ items: results, total: countRow?.total ?? 0, limit, offset })
 })
 
 // POST /admin/products
@@ -106,6 +136,7 @@ type UpdateProductBody = {
   summary?: string | null
   status?: 'draft' | 'active' | 'archived'
   imageUrl?: string
+  isFlashDeal?: boolean
 }
 
 // PATCH /admin/products/:slug
@@ -135,6 +166,7 @@ admin.patch('/products/:slug', async c => {
   if (body.sku !== undefined) set('sku', body.sku)
   if (body.summary !== undefined) set('summary', body.summary)
   if (body.status !== undefined) set('status', body.status)
+  if (body.isFlashDeal !== undefined) set('is_flash_deal', body.isFlashDeal ? 1 : 0)
 
   if (fields.length === 0) {
     // The image may have been updated above even if no `products` columns changed.

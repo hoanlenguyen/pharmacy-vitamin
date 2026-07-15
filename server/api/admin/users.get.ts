@@ -1,4 +1,5 @@
 export default defineEventHandler(async event => {
   assertAdminToken(event)
-  return await workerFetch(event, '/admin/users', { auth: true })
+  const query = getQuery(event)
+  return await workerFetch(event, '/admin/users', { query, auth: true })
 })

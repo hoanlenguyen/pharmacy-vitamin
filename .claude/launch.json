@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "nuxt-dev",
+      "name": "dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "D:/work/pharmacy-vitamin", "run", "dev"],
       "port": 3000
-    },
-    {
-      "name": "worker-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "D:/work/pharmacy-vitamin", "run", "worker:dev"],
-      "port": 8787
     }
   ]
 }

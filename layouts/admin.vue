@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { Award, Flower2, Layers, LogOut, Package, Receipt, Store, Users } from '@lucide/vue'
+import { Award, Flower2, Gift, Layers, LogOut, Package, Receipt, Store, Users, Zap } from '@lucide/vue'
 
 const { isAuthenticated, logout } = useAdminAuth()
 const route = useRoute()
@@ -64,6 +64,8 @@ const navItems = [
   { label: 'Products', to: '/admin', icon: Package, prefix: '/admin/products' },
   { label: 'Brands', to: '/admin/brands', icon: Award, prefix: '/admin/brands' },
   { label: 'Categories', to: '/admin/categories', icon: Layers, prefix: '/admin/categories' },
+  { label: 'Flash Deals', to: '/admin/flash-deals', icon: Zap, prefix: '/admin/flash-deals' },
+  { label: 'Combos', to: '/admin/combos', icon: Gift, prefix: '/admin/combos' },
   { label: 'Orders', to: '/admin/orders', icon: Receipt, prefix: '/admin/orders' },
   { label: 'Users', to: '/admin/users', icon: Users, prefix: '/admin/users' }
 ]

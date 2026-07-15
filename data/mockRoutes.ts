@@ -1,22 +1,4 @@
-import {
-  Award,
-  Briefcase,
-  CreditCard,
-  Droplet,
-  Gift,
-  LifeBuoy,
-  MapPin,
-  Newspaper,
-  Package,
-  Pill,
-  RotateCcw,
-  Sparkle,
-  Tag,
-  Truck,
-  User,
-  Wand2,
-  Zap
-} from '@lucide/vue'
+import { Award, Briefcase, CreditCard, Gift, LifeBuoy, MapPin, Newspaper, Package, RotateCcw, Tag, Truck, User } from '@lucide/vue'
 import type { Component } from 'vue'
 
 export type MockRouteType = 'category' | 'content' | 'blog' | 'account'
@@ -29,16 +11,12 @@ export type MockRouteConfig = {
   contactEmail?: string
 }
 
-// TODO: replace with real category/CMS data once a backend exists.
+// Real product categories (makeup, skin-care, etc.) are no longer listed here — they're
+// detected dynamically in pages/[...slug].vue against the live /api/categories tree, which
+// also supplies their real name/description. Flash Deals and Combos have their own dedicated
+// pages (pages/flash-deals.vue, pages/combos/) and never reach this catch-all at all.
 // Keyed by the first URL segment — anything not listed falls back to a generic "content" mock.
 export const mockRouteConfig: Record<string, MockRouteConfig> = {
-  makeup: { type: 'category', icon: Sparkle, description: 'Trending lip, face, and eye makeup picks.' },
-  'skin-care': { type: 'category', icon: Droplet, description: 'Cleansers, serums, and masks for every skin concern.' },
-  'personal-care': { type: 'category', icon: Package, description: 'Everyday body, hair, and oral care essentials.' },
-  supplements: { type: 'category', icon: Pill, description: 'Vitamins and wellness supplements.' },
-  'beauty-tools': { type: 'category', icon: Wand2, description: 'Cleansing devices and applicators.' },
-  'flash-deals': { type: 'category', icon: Zap, description: 'Limited-time discounts across the store.' },
-  combos: { type: 'category', icon: Package, description: 'Bundle deals — save more when you buy together.' },
   clearance: { type: 'category', icon: Tag, description: 'Final markdowns while supplies last.' },
 
   blog: { type: 'blog', icon: Newspaper, description: 'Skincare tips, brand spotlights, and store news.' },

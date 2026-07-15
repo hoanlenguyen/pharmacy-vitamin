@@ -1,7 +1,9 @@
 <!--
   Maps to: main horizontal category nav on mint07.com
-  Data-driven: each top-level item can be a plain link, a simple dropdown (flat list),
-  or a full mega-menu (promo image + N columns of {groupTitle, links[]}).
+  Flash Deals, Combos, Brands, Membership, and Blog are fixed nav items; everything between
+  them is the real category tree from /api/categories, filtered to showInMenu (toggled from
+  Admin > Categories). A category with visible children gets a flat dropdown of them
+  (recursively flattened, indented by depth); one with none is a plain link.
 -->
 <template>
   <nav class="relative border-b border-gray-200 bg-white">
@@ -21,42 +23,19 @@
         </NuxtLink>
 
         <Transition name="drop">
-          <!-- Simple dropdown -->
           <div
-            v-if="item.type === 'simple' && openItem === item.label"
+            v-if="item.links?.length && openItem === item.label"
             class="absolute left-0 top-full z-20 min-w-[200px] rounded-b-xl border border-gray-200 bg-white py-2 shadow-pop"
           >
             <NuxtLink
               v-for="link in item.links"
               :key="link.label"
               :to="link.to"
-              class="block px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
+              :style="{ paddingLeft: `${16 + link.depth * 14}px` }"
+              class="block py-2 pr-4 text-sm text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
             >
               {{ link.label }}
             </NuxtLink>
-          </div>
-
-          <!-- Full mega-menu -->
-          <div
-            v-else-if="item.type === 'mega' && openItem === item.label"
-            class="absolute left-0 top-full z-20 flex w-[640px] gap-6 rounded-b-xl border border-gray-200 bg-white p-6 shadow-pop"
-          >
-            <div class="hidden w-40 shrink-0 flex-col items-center justify-center gap-2 rounded-xl bg-rose-soft-gradient text-xs font-medium text-rose-700 lg:flex">
-              <Gift class="h-8 w-8 text-rose-400" aria-hidden="true" />
-              Promo image
-            </div>
-            <div class="grid flex-1 grid-cols-2 gap-6">
-              <div v-for="col in item.columns" :key="col.title">
-                <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-rose-600">{{ col.title }}</p>
-                <ul class="space-y-1.5">
-                  <li v-for="link in col.links" :key="link.label">
-                    <NuxtLink :to="link.to" class="text-sm text-gray-600 transition-colors hover:text-rose-600">
-                      {{ link.label }}
-                    </NuxtLink>
-                  </li>
-                </ul>
-              </div>
-            </div>
           </div>
         </Transition>
       </li>
@@ -65,91 +44,47 @@
 </template>
 
 <script setup lang="ts">
-import { Gift } from '@lucide/vue'
+type SimpleLink = { label: string; to: string; depth: number }
+type NavItem = { label: string; to: string; links?: SimpleLink[] }
 
-type SimpleLink = { label: string; to: string }
-type MegaColumn = { title: string; links: SimpleLink[] }
-type NavItem = {
-  label: string
-  to: string
-  type?: 'simple' | 'mega'
-  links?: SimpleLink[]
-  columns?: MegaColumn[]
+type CategoryNode = { slug: string; name: string; showInMenu: boolean; children: CategoryNode[] }
+
+const { data } = await useFetch<{ categories: CategoryNode[] }>('/api/categories')
+
+// Recursively flattens a category's visible descendants into an indented link list for its
+// dropdown — skips a node (and everything under it) once showInMenu is off.
+function flattenChildren(nodes: CategoryNode[], depth = 0): SimpleLink[] {
+  return nodes
+    .filter(node => node.showInMenu)
+    .flatMap(node => [{ label: node.name, to: `/${node.slug}`, depth }, ...flattenChildren(node.children, depth + 1)])
 }
 
-// Structure mirrors mint07.com's top-level categories — swap labels/links for your own taxonomy.
-const items: NavItem[] = [
+const categoryItems = computed<NavItem[]>(() =>
+  (data.value?.categories ?? [])
+    .filter(cat => cat.showInMenu)
+    .map(cat => ({ label: cat.name, to: `/${cat.slug}`, links: flattenChildren(cat.children) }))
+)
+
+// Fixed items, per product requirements — not database-driven.
+const itemsBefore: NavItem[] = [
   { label: 'Flash Deals', to: '/flash-deals' },
-  { label: 'Combos', to: '/combos' },
-  {
-    label: 'Makeup',
-    to: '/makeup',
-    type: 'mega',
-    columns: [
-      { title: 'Lips & Face', links: [
-        { label: 'Lipstick', to: '/makeup/lipstick' },
-        { label: 'Lip Balm', to: '/makeup/lip-balm' },
-        { label: 'Foundation', to: '/makeup/foundation' },
-        { label: 'Concealer', to: '/makeup/concealer' }
-      ] },
-      { title: 'Eyes', links: [
-        { label: 'Mascara', to: '/makeup/mascara' },
-        { label: 'Eyeliner', to: '/makeup/eyeliner' },
-        { label: 'Eyebrow', to: '/makeup/eyebrow' },
-        { label: 'Eyeshadow', to: '/makeup/eyeshadow' }
-      ] }
-    ]
-  },
-  {
-    label: 'Skin Care',
-    to: '/skin-care',
-    type: 'mega',
-    columns: [
-      { title: 'Cleansing', links: [
-        { label: 'Makeup Remover', to: '/skin-care/remover' },
-        { label: 'Face Wash', to: '/skin-care/face-wash' },
-        { label: 'Toner', to: '/skin-care/toner' }
-      ] },
-      { title: 'Moisturizing', links: [
-        { label: 'Moisturizer', to: '/skin-care/moisturizer' },
-        { label: 'Serum', to: '/skin-care/serum' },
-        { label: 'Sheet Mask', to: '/skin-care/mask' }
-      ] }
-    ]
-  },
-  {
-    label: 'Personal Care',
-    to: '/personal-care',
-    type: 'simple',
-    links: [
-      { label: 'Body Wash', to: '/personal-care/body-wash' },
-      { label: 'Hair Care', to: '/personal-care/hair-care' },
-      { label: 'Oral Care', to: '/personal-care/oral-care' }
-    ]
-  },
-  { label: 'Supplements', to: '/supplements' },
-  {
-    label: 'Beauty Tools',
-    to: '/beauty-tools',
-    type: 'simple',
-    links: [
-      { label: 'Cleansing Pads', to: '/beauty-tools/pads' },
-      { label: 'Facial Cleansing Device', to: '/beauty-tools/device' }
-    ]
-  },
+  { label: 'Combos', to: '/combos' }
+]
+const itemsAfter: NavItem[] = [
   { label: 'Brands', to: '/brands' },
   { label: 'Membership', to: '/membership' },
   {
     label: 'Blog',
     to: '/blog',
-    type: 'simple',
     links: [
-      { label: 'News', to: '/blog/news' },
-      { label: 'Reviews', to: '/blog/reviews' },
-      { label: 'Skincare Tips', to: '/blog/skincare-tips' }
+      { label: 'News', to: '/blog/news', depth: 0 },
+      { label: 'Reviews', to: '/blog/reviews', depth: 0 },
+      { label: 'Skincare Tips', to: '/blog/skincare-tips', depth: 0 }
     ]
   }
 ]
+
+const items = computed<NavItem[]>(() => [...itemsBefore, ...categoryItems.value, ...itemsAfter])
 
 const openItem = ref<string | null>(null)
 </script>

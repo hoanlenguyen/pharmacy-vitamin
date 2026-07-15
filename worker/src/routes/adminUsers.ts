@@ -5,18 +5,58 @@ import { requireBearerToken } from '../lib/auth'
 export const adminUsers = new Hono<{ Bindings: Bindings }>()
 adminUsers.use('*', requireBearerToken)
 
-// GET /admin/users — list, with order count + lifetime spend.
-adminUsers.get('/', async c => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT
-       u.id, u.email, u.name, u.phone, u.created_at AS createdAt,
-       (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orderCount,
-       (SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE o.user_id = u.id) AS totalSpent
-     FROM users u
-     ORDER BY u.created_at DESC`
-  ).all()
+// Whitelisted so sortBy can never inject arbitrary SQL — only these columns are sortable.
+const USER_SORT_COLUMNS: Record<string, string> = {
+  name: 'u.name',
+  email: 'u.email',
+  orderCount: 'orderCount',
+  totalSpent: 'totalSpent',
+  createdAt: 'u.created_at'
+}
 
-  return c.json({ items: results })
+// GET /admin/users?q=<name>&email=&phone=&sortBy=&sortDir=&limit=10&offset=0 — list, with
+// order count + lifetime spend. The three text filters are independent (combined with AND).
+adminUsers.get('/', async c => {
+  const q = c.req.query('q')?.trim() || null
+  const email = c.req.query('email')?.trim() || null
+  const phone = c.req.query('phone')?.trim() || null
+  const limit = Math.min(Number(c.req.query('limit') ?? 10) || 10, 100)
+  const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0)
+  const sortByParam = c.req.query('sortBy')
+  const sortDirParam = c.req.query('sortDir')
+  const sortColumn = USER_SORT_COLUMNS[sortByParam ?? ''] ?? USER_SORT_COLUMNS.createdAt
+  // No explicit direction: default to ascending for a freshly-clicked column, but preserve
+  // the original "newest first" default when no sort was requested at all.
+  const sortDir = sortDirParam === 'asc' ? 'ASC' : sortDirParam === 'desc' ? 'DESC' : sortByParam ? 'ASC' : 'DESC'
+  const orderBy = `${sortColumn} ${sortDir}${sortColumn === USER_SORT_COLUMNS.name ? '' : ', u.name ASC'}`
+
+  const whereSql = `
+    (?1 IS NULL OR u.name LIKE '%' || ?1 || '%')
+    AND (?2 IS NULL OR u.email LIKE '%' || ?2 || '%')
+    AND (?3 IS NULL OR u.phone LIKE '%' || ?3 || '%')
+  `
+
+  const [countRow, { results }] = await Promise.all([
+    c.env.DB
+      .prepare(`SELECT COUNT(*) AS total FROM users u WHERE ${whereSql}`)
+      .bind(q, email, phone)
+      .first<{ total: number }>(),
+    c.env.DB
+      .prepare(
+        `SELECT
+           u.id, u.email, u.name, u.phone, u.created_at AS createdAt,
+           (SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id) AS orderCount,
+           (SELECT COALESCE(SUM(o.total), 0) FROM orders o WHERE o.user_id = u.id) AS totalSpent
+         FROM users u
+         WHERE ${whereSql}
+         ORDER BY ${orderBy}
+         LIMIT ?4 OFFSET ?5`
+      )
+      .bind(q, email, phone, limit, offset)
+      .all()
+  ])
+
+  return c.json({ items: results, total: countRow?.total ?? 0, limit, offset })
 })
 
 // GET /admin/users/:id — profile + addresses + their orders (summary).

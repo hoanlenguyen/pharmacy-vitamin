@@ -7,21 +7,62 @@ adminOrders.use('*', requireBearerToken)
 
 const VALID_STATUSES = new Set(['pending', 'paid', 'shipped', 'delivered', 'cancelled'])
 
-// GET /admin/orders — list, with customer + item count. Guest checkout orders have no
-// linked user row, so customer name/email fall back to the order's own snapshot columns.
-adminOrders.get('/', async c => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT
-       o.id, o.order_number AS orderNumber, o.status, o.total, o.payment_method AS paymentMethod, o.placed_at AS placedAt,
-       COALESCE(u.name, NULLIF(o.customer_name, '')) AS customerName,
-       COALESCE(u.email, NULLIF(o.customer_email, '')) AS customerEmail,
-       (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS itemCount
-     FROM orders o
-     LEFT JOIN users u ON u.id = o.user_id
-     ORDER BY o.placed_at DESC`
-  ).all()
+// Whitelisted so sortBy can never inject arbitrary SQL — only these columns are sortable.
+const ORDER_SORT_COLUMNS: Record<string, string> = {
+  orderNumber: 'o.order_number',
+  customerName: 'COALESCE(u.name, o.customer_name)',
+  total: 'o.total',
+  status: 'o.status',
+  itemCount: 'itemCount',
+  placedAt: 'o.placed_at'
+}
 
-  return c.json({ items: results })
+// GET /admin/orders?orderNumber=&q=<customer name>&phone=&sortBy=&sortDir=&limit=10&offset=0
+// — list, with customer + item count. Guest checkout orders have no linked user row, so
+// customer name/email/phone fall back to the order's own snapshot columns. The three text
+// filters are independent (combined with AND) so they can be used together to narrow down.
+adminOrders.get('/', async c => {
+  const orderNumber = c.req.query('orderNumber')?.trim() || null
+  const q = c.req.query('q')?.trim() || null
+  const phone = c.req.query('phone')?.trim() || null
+  const limit = Math.min(Number(c.req.query('limit') ?? 10) || 10, 100)
+  const offset = Math.max(Number(c.req.query('offset') ?? 0) || 0, 0)
+  const sortByParam = c.req.query('sortBy')
+  const sortDirParam = c.req.query('sortDir')
+  const sortColumn = ORDER_SORT_COLUMNS[sortByParam ?? ''] ?? ORDER_SORT_COLUMNS.placedAt
+  const sortDir = sortDirParam === 'asc' ? 'ASC' : sortDirParam === 'desc' ? 'DESC' : sortByParam ? 'ASC' : 'DESC'
+  const orderBy = `${sortColumn} ${sortDir}${sortColumn === ORDER_SORT_COLUMNS.placedAt ? '' : ', o.placed_at DESC'}`
+
+  const whereSql = `
+    (?1 IS NULL OR o.order_number LIKE '%' || ?1 || '%')
+    AND (?2 IS NULL OR COALESCE(u.name, o.customer_name) LIKE '%' || ?2 || '%')
+    AND (?3 IS NULL OR COALESCE(u.phone, o.customer_phone) LIKE '%' || ?3 || '%')
+  `
+
+  const [countRow, { results }] = await Promise.all([
+    c.env.DB
+      .prepare(`SELECT COUNT(*) AS total FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE ${whereSql}`)
+      .bind(orderNumber, q, phone)
+      .first<{ total: number }>(),
+    c.env.DB
+      .prepare(
+        `SELECT
+           o.id, o.order_number AS orderNumber, o.status, o.total, o.payment_method AS paymentMethod, o.placed_at AS placedAt,
+           COALESCE(u.name, NULLIF(o.customer_name, '')) AS customerName,
+           COALESCE(u.email, NULLIF(o.customer_email, '')) AS customerEmail,
+           COALESCE(u.phone, NULLIF(o.customer_phone, '')) AS customerPhone,
+           (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS itemCount
+         FROM orders o
+         LEFT JOIN users u ON u.id = o.user_id
+         WHERE ${whereSql}
+         ORDER BY ${orderBy}
+         LIMIT ?4 OFFSET ?5`
+      )
+      .bind(orderNumber, q, phone, limit, offset)
+      .all()
+  ])
+
+  return c.json({ items: results, total: countRow?.total ?? 0, limit, offset })
 })
 
 // GET /admin/orders/:id — full detail: order + customer + shipping address + line items.

@@ -23,7 +23,7 @@ type ProductListRow = {
 // otherwise its own price. Kept as one expression so filtering/sorting/display all agree.
 const EFFECTIVE_PRICE = `COALESCE((SELECT MIN(v.price) FROM product_variants v WHERE v.product_id = p.id), p.price)`
 
-// GET /products?category=<slug>&brand=<slug>&q=<text>&slugs=<a,b,c>&minPrice=&maxPrice=
+// GET /products?category=<slug>&brand=<slug>&q=<text>&slugs=<a,b,c>&flashDeal=true&minPrice=&maxPrice=
 //              &limit=20&offset=0&sort=sold|discount|price_asc|price_desc
 products.get('/', async c => {
   const category = c.req.query('category') ?? null
@@ -42,6 +42,7 @@ products.get('/', async c => {
             .filter(Boolean)
         )
       : null
+  const flashDeal = c.req.query('flashDeal') === 'true' ? 1 : null
   const minPrice = c.req.query('minPrice') !== undefined ? Number(c.req.query('minPrice')) : null
   const maxPrice = c.req.query('maxPrice') !== undefined ? Number(c.req.query('maxPrice')) : null
   const limit = Math.min(Number(c.req.query('limit') ?? 20) || 20, 100)
@@ -57,9 +58,9 @@ products.get('/', async c => {
           : `p.sold_count DESC, p.name ASC`
 
   // Filters shared by the bounds/count/results queries below so they never drift out of
-  // sync — ?1/?2/?3/?4 are the catalog filters (category/brand/q/slugs). Price bounds are
-  // computed over this same filtered set (excluding the price filter itself, ?5/?6), so the
-  // slider's min/max stay stable while the price handles move.
+  // sync — ?1/?2/?3/?4/?5 are the catalog filters (category/brand/q/slugs/flashDeal). Price
+  // bounds are computed over this same filtered set (excluding the price filter itself,
+  // ?6/?7), so the slider's min/max stay stable while the price handles move.
   const baseWhereSql = `
     p.status = 'active'
     AND (?1 IS NULL OR EXISTS (
@@ -69,20 +70,21 @@ products.get('/', async c => {
     AND (?2 IS NULL OR br.slug = ?2)
     AND (?3 IS NULL OR p.name LIKE '%' || ?3 || '%')
     AND (?4 IS NULL OR p.slug IN (SELECT value FROM json_each(?4)))
+    AND (?5 IS NULL OR p.is_flash_deal = ?5)
   `
-  const whereSql = `${baseWhereSql} AND (?5 IS NULL OR ${EFFECTIVE_PRICE} >= ?5) AND (?6 IS NULL OR ${EFFECTIVE_PRICE} <= ?6)`
+  const whereSql = `${baseWhereSql} AND (?6 IS NULL OR ${EFFECTIVE_PRICE} >= ?6) AND (?7 IS NULL OR ${EFFECTIVE_PRICE} <= ?7)`
 
   const [countRow, boundsRow, { results }] = await Promise.all([
     c.env.DB
       .prepare(`SELECT COUNT(*) AS total FROM products p LEFT JOIN brands br ON br.id = p.brand_id WHERE ${whereSql}`)
-      .bind(category, brand, q, slugsJson, minPrice, maxPrice)
+      .bind(category, brand, q, slugsJson, flashDeal, minPrice, maxPrice)
       .first<{ total: number }>(),
     c.env.DB
       .prepare(
         `SELECT MIN(${EFFECTIVE_PRICE}) AS min, MAX(${EFFECTIVE_PRICE}) AS max
          FROM products p LEFT JOIN brands br ON br.id = p.brand_id WHERE ${baseWhereSql}`
       )
-      .bind(category, brand, q, slugsJson)
+      .bind(category, brand, q, slugsJson, flashDeal)
       .first<{ min: number | null; max: number | null }>(),
     c.env.DB
       .prepare(
@@ -98,9 +100,9 @@ products.get('/', async c => {
          LEFT JOIN brands br ON br.id = p.brand_id
          WHERE ${whereSql}
          ORDER BY ${orderBy}
-         LIMIT ?7 OFFSET ?8`
+         LIMIT ?8 OFFSET ?9`
       )
-      .bind(category, brand, q, slugsJson, minPrice, maxPrice, limit, offset)
+      .bind(category, brand, q, slugsJson, flashDeal, minPrice, maxPrice, limit, offset)
       .all<ProductListRow>()
   ])
 
@@ -170,7 +172,7 @@ products.get('/:slug', async c => {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  const [categories, breadcrumb, images, ingredients, bullets, variantRows] = await Promise.all([
+  const [categories, breadcrumb, images, ingredients, bullets, variantRows, combos] = await Promise.all([
     c.env.DB.prepare(
       `SELECT cat.name, cat.slug, pc.is_primary AS isPrimary
        FROM product_categories pc JOIN categories cat ON cat.id = pc.category_id
@@ -200,7 +202,17 @@ products.get('/:slug', async c => {
        ORDER BY ov.sort_order`
     )
       .bind(product.id)
-      .all<{ id: string; price: number; compareAtPrice: number | null; stockQuantity: number; optionName: string; optionValue: string }>()
+      .all<{ id: string; price: number; compareAtPrice: number | null; stockQuantity: number; optionName: string; optionValue: string }>(),
+    c.env.DB.prepare(
+      `SELECT co.slug, co.name, co.price, co.compare_at_price AS compareAtPrice,
+              (SELECT COUNT(*) FROM combo_items ci2 WHERE ci2.combo_id = co.id) AS itemCount
+       FROM combo_items ci
+       JOIN combos co ON co.id = ci.combo_id
+       WHERE ci.product_id = ?1 AND co.status = 'active'
+       ORDER BY co.sort_order, co.name`
+    )
+      .bind(product.id)
+      .all<{ slug: string; name: string; price: number; compareAtPrice: number | null; itemCount: number }>()
   ])
 
   return c.json({
@@ -223,6 +235,7 @@ products.get('/:slug', async c => {
     skinConcerns: bullets.results.filter(b => b.type === 'skin_concern').map(b => b.content),
     howToUse: bullets.results.filter(b => b.type === 'how_to_use').map(b => b.content),
     ingredients: ingredients.results,
+    combos: combos.results,
     variants: variantRows.results.map(v => ({
       id: v.id,
       price: v.price,

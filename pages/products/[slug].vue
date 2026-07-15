@@ -79,6 +79,28 @@
           </button>
         </div>
 
+        <div v-if="product.combos?.length" class="mt-6 space-y-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Buy More, Save More</p>
+          <NuxtLink
+            v-for="combo in product.combos"
+            :key="combo.slug"
+            :to="`/combos/${combo.slug}`"
+            class="flex items-center gap-3 rounded-xl border border-rose-100 bg-rose-50/40 p-3 transition-colors hover:bg-rose-50"
+          >
+            <Gift class="h-5 w-5 shrink-0 text-rose-500" aria-hidden="true" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-gray-800">
+                Get it in the <span class="text-rose-600">{{ combo.name }}</span> bundle
+              </p>
+              <p class="text-xs text-gray-500">
+                {{ combo.itemCount }} products for {{ formatCurrency(combo.price) }}
+                <span v-if="combo.compareAtPrice" class="text-gray-400 line-through">{{ formatCurrency(combo.compareAtPrice) }}</span>
+              </p>
+            </div>
+            <ChevronRight class="h-4 w-4 shrink-0 text-gray-300" aria-hidden="true" />
+          </NuxtLink>
+        </div>
+
         <div class="mt-6 grid grid-cols-1 gap-3 border-t border-gray-100 pt-6 sm:grid-cols-3">
           <div v-for="badge in trustBadges" :key="badge.label" class="flex items-center gap-2 text-xs text-gray-600">
             <component :is="badge.icon" class="h-4 w-4 shrink-0 text-rose-500" aria-hidden="true" />
@@ -189,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { Check, ChevronRight, MessageSquare, PackageSearch, RotateCcw, ShieldCheck, ShoppingCart, Star, Truck } from '@lucide/vue'
+import { Check, ChevronRight, Gift, MessageSquare, PackageSearch, RotateCcw, ShieldCheck, ShoppingCart, Star, Truck } from '@lucide/vue'
 import type { Product } from '~/components/ProductCard.vue'
 
 type ProductDetail = {
@@ -213,6 +235,7 @@ type ProductDetail = {
   howToUse: string[]
   ingredients: { name: string; benefit: string }[]
   variants: { id: string; price: number; originalPrice?: number; stockQuantity: number; optionName: string; value: string }[]
+  combos: { slug: string; name: string; price: number; compareAtPrice: number | null; itemCount: number }[]
 }
 
 const route = useRoute()

@@ -6,7 +6,16 @@
 <template>
   <section class="mx-auto max-w-7xl px-4 py-8">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <h2 class="font-display text-xl font-bold text-gray-900">{{ title }}</h2>
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="font-display text-xl font-bold text-gray-900">{{ title }}</h2>
+        <NuxtLink
+          v-if="ctaLabel && ctaTo"
+          :to="ctaTo"
+          class="rounded-full bg-rose-gradient px-4 py-1.5 text-xs font-semibold text-white shadow-card transition-opacity hover:opacity-90"
+        >
+          {{ ctaLabel }}
+        </NuxtLink>
+      </div>
 
       <div v-if="tabs?.length" class="flex gap-4 text-sm font-medium text-gray-500">
         <button
@@ -43,6 +52,8 @@ const props = defineProps<{
   products: Product[]
   tabs?: string[]
   countdownSeconds?: number
+  ctaLabel?: string
+  ctaTo?: string
 }>()
 
 const activeTab = ref(props.tabs?.[0] ?? '')

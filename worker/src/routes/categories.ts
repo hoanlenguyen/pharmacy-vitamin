@@ -4,14 +4,33 @@ import { requireBearerToken } from '../lib/auth'
 
 export const categories = new Hono<{ Bindings: Bindings }>()
 
-type CategoryRow = { id: string; slug: string; name: string; parentId: string | null; productCount: number }
-type CategoryNode = { slug: string; name: string; productCount: number; children: CategoryNode[] }
+type CategoryRow = {
+  id: string
+  slug: string
+  name: string
+  description: string | null
+  parentId: string | null
+  productCount: number
+  showInMenu: 0 | 1
+}
+type CategoryNode = {
+  slug: string
+  name: string
+  description: string | null
+  productCount: number
+  showInMenu: boolean
+  children: CategoryNode[]
+}
 
 // GET /categories — nested tree, top-level categories first. productCount is the number of
 // active products directly tagged to that category (not summed across its subcategories).
+// showInMenu is returned (not filtered here) so callers can decide: MegaMenu.vue's nav
+// should hide flagged-off categories, but e.g. the search sidebar's category filter still
+// wants every category that has products. description powers pages/[...slug].vue's header
+// when browsing a real category.
 categories.get('/', async c => {
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id, c.slug, c.name, c.parent_id AS parentId,
+    `SELECT c.id, c.slug, c.name, c.description, c.parent_id AS parentId, c.show_in_menu AS showInMenu,
             (SELECT COUNT(*) FROM product_categories pc
              JOIN products p ON p.id = pc.product_id
              WHERE pc.category_id = c.id AND p.status = 'active') AS productCount
@@ -21,7 +40,14 @@ categories.get('/', async c => {
 
   const nodeBySlug = new Map<string, CategoryNode>()
   for (const row of results) {
-    nodeBySlug.set(row.id, { slug: row.slug, name: row.name, productCount: row.productCount, children: [] })
+    nodeBySlug.set(row.id, {
+      slug: row.slug,
+      name: row.name,
+      description: row.description,
+      productCount: row.productCount,
+      showInMenu: Boolean(row.showInMenu),
+      children: []
+    })
   }
 
   const roots: CategoryNode[] = []
@@ -46,12 +72,13 @@ type CategoryBody = {
   parentSlug?: string | null
   description?: string | null
   sortOrder?: number
+  showInMenu?: boolean
 }
 
 // GET /admin/categories — flat list (with parent slug + usage counts) for the admin table/selects.
 adminCategories.get('/', async c => {
   const { results } = await c.env.DB.prepare(
-    `SELECT c.id, c.slug, c.name, c.description, c.sort_order AS sortOrder,
+    `SELECT c.id, c.slug, c.name, c.description, c.sort_order AS sortOrder, c.show_in_menu AS showInMenu,
             parent.slug AS parentSlug,
             (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id = c.id) AS productCount,
             (SELECT COUNT(*) FROM categories child WHERE child.parent_id = c.id) AS childCount
@@ -85,9 +112,9 @@ adminCategories.post('/', async c => {
 
   const id = crypto.randomUUID()
   await c.env.DB.prepare(
-    'INSERT INTO categories (id, parent_id, name, slug, description, sort_order) VALUES (?1, ?2, ?3, ?4, ?5, ?6)'
+    'INSERT INTO categories (id, parent_id, name, slug, description, sort_order, show_in_menu) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)'
   )
-    .bind(id, parentId, body.name, body.slug, body.description ?? null, body.sortOrder ?? 0)
+    .bind(id, parentId, body.name, body.slug, body.description ?? null, body.sortOrder ?? 0, body.showInMenu === false ? 0 : 1)
     .run()
 
   return c.json({ id, slug: body.slug }, 201)
@@ -113,6 +140,7 @@ adminCategories.patch('/:slug', async c => {
   if (body.name !== undefined) set('name', body.name)
   if (body.description !== undefined) set('description', body.description)
   if (body.sortOrder !== undefined) set('sort_order', body.sortOrder)
+  if (body.showInMenu !== undefined) set('show_in_menu', body.showInMenu ? 1 : 0)
 
   if (body.parentSlug !== undefined) {
     if (body.parentSlug === null) {
