@@ -17,7 +17,7 @@
         <SearchIcon class="h-5 w-5" aria-hidden="true" />
       </div>
       <div>
-        <h1 class="font-display text-2xl font-bold text-gray-900">Search results for "{{ query }}"</h1>
+        <h1 v-if="query" class="font-display text-2xl font-bold text-gray-900">Search results for "{{ query }}"</h1>
         <p class="mt-1 flex items-center gap-2 text-sm text-gray-500">
           <span>{{ pending ? 'Searching…' : `${total} result${total === 1 ? '' : 's'}` }}</span>
           <span

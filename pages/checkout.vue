@@ -58,37 +58,43 @@
         <section class="pt-4">
           <h2 class="mb-4 border-b border-gray-100 pb-2 font-display text-lg font-bold text-gray-900">Billing Details</h2>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label class="text-sm text-gray-600">
-              First Name <span class="text-rose-500">*</span>
-              <input v-model="billing.firstName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
-            <label class="text-sm text-gray-600">
-              Last Name <span class="text-rose-500">*</span>
-              <input v-model="billing.lastName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
-              Country / Region <span class="text-rose-500">*</span>
-              <select v-model="billing.country" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
-                <option v-for="c in countries" :key="c">{{ c }}</option>
+              Full Name <span class="text-rose-500">*</span>
+              <input v-model="billing.fullName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
+            </label>
+            <label class="text-sm text-gray-600">
+              Province / City <span class="text-rose-500">*</span>
+              <select v-model="billing.provinceCode" required class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
+                <option value="">— Select province —</option>
+                <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name_with_type }}</option>
+              </select>
+            </label>
+            <label class="text-sm text-gray-600">
+              Ward <span class="text-rose-500">*</span>
+              <select
+                v-model="billing.wardCode"
+                required
+                :disabled="!billing.provinceCode"
+                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="">{{ billing.provinceCode ? '— Select ward —' : 'Select a province first' }}</option>
+                <option v-for="w in billingWards" :key="w.code" :value="w.code">{{ w.name_with_type }}</option>
               </select>
             </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
               Street Address <span class="text-rose-500">*</span>
               <input v-model="billing.address" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
+            <p v-if="billingFullAddress" class="text-xs text-gray-500 sm:col-span-2">Full address: {{ billingFullAddress }}</p>
             <label class="text-sm text-gray-600">
-              Postal Code <span class="text-rose-500">*</span>
-              <input v-model="billing.postalCode" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
-            <label class="text-sm text-gray-600">
-              Town / City <span class="text-rose-500">*</span>
-              <input v-model="billing.city" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
+              Postal Code <span class="text-gray-400">(optional)</span>
+              <input v-model="billing.postalCode" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
             <label class="text-sm text-gray-600">
               Phone <span class="text-rose-500">*</span>
               <input v-model="billing.phone" type="tel" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
-            <label class="text-sm text-gray-600">
+            <label class="text-sm text-gray-600 sm:col-span-2">
               Email Address <span class="text-rose-500">*</span>
               <input v-model="billing.email" type="email" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
@@ -102,31 +108,37 @@
           </label>
 
           <div v-if="shipToDifferent" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label class="text-sm text-gray-600">
-              First Name <span class="text-rose-500">*</span>
-              <input v-model="shipping.firstName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
-            <label class="text-sm text-gray-600">
-              Last Name <span class="text-rose-500">*</span>
-              <input v-model="shipping.lastName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
-              Country / Region <span class="text-rose-500">*</span>
-              <select v-model="shipping.country" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
-                <option v-for="c in countries" :key="c">{{ c }}</option>
+              Full Name <span class="text-rose-500">*</span>
+              <input v-model="shipping.fullName" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
+            </label>
+            <label class="text-sm text-gray-600">
+              Province / City <span class="text-rose-500">*</span>
+              <select v-model="shipping.provinceCode" required class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
+                <option value="">— Select province —</option>
+                <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name_with_type }}</option>
+              </select>
+            </label>
+            <label class="text-sm text-gray-600">
+              Ward <span class="text-rose-500">*</span>
+              <select
+                v-model="shipping.wardCode"
+                required
+                :disabled="!shipping.provinceCode"
+                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <option value="">{{ shipping.provinceCode ? '— Select ward —' : 'Select a province first' }}</option>
+                <option v-for="w in shippingWards" :key="w.code" :value="w.code">{{ w.name_with_type }}</option>
               </select>
             </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
               Street Address <span class="text-rose-500">*</span>
               <input v-model="shipping.address" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
+            <p v-if="shippingFullAddress" class="text-xs text-gray-500 sm:col-span-2">Full address: {{ shippingFullAddress }}</p>
             <label class="text-sm text-gray-600">
               Postal Code <span class="text-gray-400">(optional)</span>
               <input v-model="shipping.postalCode" type="text" class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
-            </label>
-            <label class="text-sm text-gray-600">
-              Town / City <span class="text-rose-500">*</span>
-              <input v-model="shipping.city" type="text" required class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400" />
             </label>
             <label class="text-sm text-gray-600">
               Phone <span class="text-rose-500">*</span>
@@ -242,29 +254,51 @@ function applyCoupon() {
     : ''
 }
 
-const countries = ['Vietnam', 'United States', 'Other']
+type Province = { name: string; name_with_type: string; code: string }
+type Ward = { name: string; name_with_type: string; code: string; parent_code: string }
+
+// Vietnam administrative reference data (public/provinces.json, public/wards.json) —
+// wards are scoped to their province via parent_code, so the Ward select only makes sense
+// once a province is chosen.
+const { data: provincesData } = await useFetch<Province[]>('/provinces.json')
+const { data: wardsData } = await useFetch<Ward[]>('/wards.json')
+const provinces = computed(() => provincesData.value ?? [])
+const allWards = computed(() => wardsData.value ?? [])
 
 const billing = reactive({
-  firstName: '',
-  lastName: '',
-  country: 'Vietnam',
+  fullName: '',
+  provinceCode: '',
+  wardCode: '',
   address: '',
   postalCode: '',
-  city: '',
   phone: '',
   email: ''
 })
 
 const shipToDifferent = ref(false)
 const shipping = reactive({
-  firstName: '',
-  lastName: '',
-  country: 'Vietnam',
+  fullName: '',
+  provinceCode: '',
+  wardCode: '',
   address: '',
   postalCode: '',
-  city: '',
   phone: ''
 })
+
+const billingWards = computed(() => allWards.value.filter(w => w.parent_code === billing.provinceCode))
+const shippingWards = computed(() => allWards.value.filter(w => w.parent_code === shipping.provinceCode))
+
+// Changing the province invalidates whatever ward was picked under the old one.
+watch(() => billing.provinceCode, () => { billing.wardCode = '' })
+watch(() => shipping.provinceCode, () => { shipping.wardCode = '' })
+
+function buildFullAddress(target: { address: string; provinceCode: string; wardCode: string }) {
+  const province = provinces.value.find(p => p.code === target.provinceCode)
+  const ward = allWards.value.find(w => w.code === target.wardCode)
+  return [target.address, ward?.name_with_type, province?.name_with_type].filter(Boolean).join(', ')
+}
+const billingFullAddress = computed(() => buildFullAddress(billing))
+const shippingFullAddress = computed(() => buildFullAddress(shipping))
 
 const notes = ref('')
 const paymentMethod = ref<'bank_transfer' | 'cod'>('bank_transfer')
@@ -294,20 +328,23 @@ async function handlePlaceOrder() {
   submitting.value = true
   try {
     const shipTo = shipToDifferent.value ? shipping : billing
+    const shipToProvince = provinces.value.find(p => p.code === shipTo.provinceCode)
+    const shipToWard = allWards.value.find(w => w.code === shipTo.wardCode)
 
     const payload = {
       customer: {
-        name: `${billing.firstName} ${billing.lastName}`.trim(),
+        name: billing.fullName,
         email: billing.email,
         phone: billing.phone
       },
       shipping: {
-        name: `${shipTo.firstName} ${shipTo.lastName}`.trim(),
+        name: shipTo.fullName,
         phone: shipTo.phone,
         line1: shipTo.address,
-        city: shipTo.city,
+        city: shipToWard?.name_with_type ?? '',
+        region: shipToProvince?.name_with_type,
         postalCode: shipTo.postalCode || undefined,
-        country: shipTo.country
+        country: 'Vietnam'
       },
       items: items.value.map(line => ({
         slug: line.slug ?? line.id,
