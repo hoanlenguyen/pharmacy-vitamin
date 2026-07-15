@@ -148,3 +148,22 @@ vite.config.ts.timestamp-*
 # Wrangler local secrets
 .dev.vars
 !.dev.vars.example
+
+# Local development files
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.factory/
+.gemini/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
