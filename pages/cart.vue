@@ -12,6 +12,13 @@
 
     <h1 class="mb-6 font-display text-2xl font-bold text-gray-900">Your Cart</h1>
 
+    <!-- The cart lives in localStorage, so it's empty during SSR; render its contents only on
+         the client to avoid a hydration mismatch between the empty and populated states. -->
+    <ClientOnly>
+      <template #fallback>
+        <div class="py-20 text-center text-sm text-gray-400">Loading your cart…</div>
+      </template>
+
     <div v-if="items.length" class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <div class="rounded-xl border border-gray-100 p-4 shadow-card lg:col-span-2">
         <CartLineItem
@@ -82,6 +89,7 @@
         Continue Shopping
       </NuxtLink>
     </div>
+    </ClientOnly>
   </div>
 </template>
 
@@ -90,7 +98,9 @@ import { ArrowLeft, ChevronRight, Lock, ShoppingBag } from '@lucide/vue'
 
 useHead({ title: 'Your Cart — Pharmacy Vitamin' })
 
-const { items, removeItem, updateQuantity, subtotal } = useCart()
+const cart = useCartStore()
+const { items, subtotal } = storeToRefs(cart)
+const { removeItem, updateQuantity } = cart
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US').format(value)

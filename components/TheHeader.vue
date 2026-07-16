@@ -51,12 +51,16 @@
         <NuxtLink to="/cart" class="flex items-center gap-1.5 text-gray-700 transition-colors hover:text-rose-600">
           <span class="relative">
             <ShoppingBag class="h-5 w-5" aria-hidden="true" />
-            <span
-              v-if="cartCount > 0"
-              class="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-semibold text-white"
-            >
-              {{ cartCount }}
-            </span>
+            <!-- ClientOnly: the count comes from the localStorage-backed cart store, which is
+                 empty during SSR — rendering it only on the client avoids a hydration mismatch. -->
+            <ClientOnly>
+              <span
+                v-if="cartCount > 0"
+                class="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-semibold text-white"
+              >
+                {{ cartCount }}
+              </span>
+            </ClientOnly>
           </span>
           <span class="hidden lg:inline">Cart</span>
         </NuxtLink>
@@ -100,5 +104,5 @@ function handleSearch() {
   })
 }
 
-const { count: cartCount } = useCart()
+const { count: cartCount } = storeToRefs(useCartStore())
 </script>

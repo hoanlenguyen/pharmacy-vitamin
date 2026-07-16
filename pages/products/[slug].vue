@@ -255,7 +255,7 @@ const activeTab = ref('Description')
 const quantity = ref(1)
 const justAdded = ref(false)
 const selectedVariantId = ref<string>()
-const { addItem } = useCart()
+const { addItem } = useCartStore()
 const { recordView } = useRecentlyViewed()
 
 // Registered inside onMounted so it runs after useRecentlyViewed's own onMounted has

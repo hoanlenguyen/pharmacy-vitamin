@@ -2,7 +2,11 @@
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss'],
+  // Deploy target: Vercel serverless. Nitro auto-detects Vercel during its build, but pinning
+  // the preset keeps local `nuxt build` output consistent with what Vercel produces. The
+  // Cloudflare Worker (D1 + R2) is deployed separately via wrangler — see DEPLOY.md.
+  nitro: { preset: 'vercel' },
+  modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     // Server-only — never exposed to the client (no `public` prefix).
@@ -17,6 +21,7 @@ export default defineNuxtConfig({
         { name: 'description', content: 'Cosmetics, skincare and wellness essentials — Pharmacy Vitamin online store.' }
       ],
       link: [
+        { rel: 'icon', type: 'image/png', href: '/favicon.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {

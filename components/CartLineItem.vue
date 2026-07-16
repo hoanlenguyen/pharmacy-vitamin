@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { Image as ImageIcon, X } from '@lucide/vue'
 import { resolveComponent } from 'vue'
-import type { CartLine } from '~/composables/useCart'
+import type { CartLine } from '~/stores/cart'
 
 defineProps<{ line: CartLine }>()
 defineEmits<{ remove: [id: string]; 'update-quantity': [id: string, quantity: number] }>()

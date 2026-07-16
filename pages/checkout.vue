@@ -14,6 +14,13 @@
 
     <h1 class="mb-6 font-display text-2xl font-bold text-gray-900">Checkout</h1>
 
+    <!-- Cart state is client-only (localStorage), so defer rendering the empty-guard vs. the
+         order form to the client to avoid a hydration mismatch. -->
+    <ClientOnly>
+      <template #fallback>
+        <div class="py-20 text-center text-sm text-gray-400">Loading checkout…</div>
+      </template>
+
     <div v-if="items.length === 0" class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-rose-200 bg-rose-50/40 py-20 text-center">
       <ShoppingBag class="h-10 w-10 text-rose-300" aria-hidden="true" />
       <p class="font-display text-lg font-bold text-gray-900">Your cart is empty</p>
@@ -64,22 +71,25 @@
             </label>
             <label class="text-sm text-gray-600">
               Province / City <span class="text-rose-500">*</span>
-              <select v-model="billing.provinceCode" required class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
-                <option value="">— Select province —</option>
-                <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name_with_type }}</option>
-              </select>
+              <div class="mt-1">
+                <AutocompleteSelect
+                  v-model="billing.provinceCode"
+                  :options="provinceOptions"
+                  placeholder="Type to search province…"
+                />
+              </div>
             </label>
             <label class="text-sm text-gray-600">
               Ward <span class="text-rose-500">*</span>
-              <select
-                v-model="billing.wardCode"
-                required
-                :disabled="!billing.provinceCode"
-                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                <option value="">{{ billing.provinceCode ? '— Select ward —' : 'Select a province first' }}</option>
-                <option v-for="w in billingWards" :key="w.code" :value="w.code">{{ w.name_with_type }}</option>
-              </select>
+              <div class="mt-1">
+                <AutocompleteSelect
+                  v-model="billing.wardCode"
+                  :options="billingWardOptions"
+                  :disabled="!billing.provinceCode"
+                  placeholder="Type to search ward…"
+                  disabled-placeholder="Select a province first"
+                />
+              </div>
             </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
               Street Address <span class="text-rose-500">*</span>
@@ -114,22 +124,25 @@
             </label>
             <label class="text-sm text-gray-600">
               Province / City <span class="text-rose-500">*</span>
-              <select v-model="shipping.provinceCode" required class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400">
-                <option value="">— Select province —</option>
-                <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name_with_type }}</option>
-              </select>
+              <div class="mt-1">
+                <AutocompleteSelect
+                  v-model="shipping.provinceCode"
+                  :options="provinceOptions"
+                  placeholder="Type to search province…"
+                />
+              </div>
             </label>
             <label class="text-sm text-gray-600">
               Ward <span class="text-rose-500">*</span>
-              <select
-                v-model="shipping.wardCode"
-                required
-                :disabled="!shipping.provinceCode"
-                class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:bg-gray-100 disabled:text-gray-400"
-              >
-                <option value="">{{ shipping.provinceCode ? '— Select ward —' : 'Select a province first' }}</option>
-                <option v-for="w in shippingWards" :key="w.code" :value="w.code">{{ w.name_with_type }}</option>
-              </select>
+              <div class="mt-1">
+                <AutocompleteSelect
+                  v-model="shipping.wardCode"
+                  :options="shippingWardOptions"
+                  :disabled="!shipping.provinceCode"
+                  placeholder="Type to search ward…"
+                  disabled-placeholder="Select a province first"
+                />
+              </div>
             </label>
             <label class="text-sm text-gray-600 sm:col-span-2">
               Street Address <span class="text-rose-500">*</span>
@@ -233,6 +246,7 @@
         </div>
       </div>
     </form>
+    </ClientOnly>
   </div>
 </template>
 
@@ -241,7 +255,9 @@ import { ChevronRight, Lock, ShoppingBag } from '@lucide/vue'
 
 useHead({ title: 'Checkout — Pharmacy Vitamin' })
 
-const { items, subtotal, clear } = useCart()
+const cart = useCartStore()
+const { items, subtotal } = storeToRefs(cart)
+const { clear } = cart
 
 const showLoginNote = ref(false)
 const showCoupon = ref(false)
@@ -262,8 +278,10 @@ type Ward = { name: string; name_with_type: string; code: string; parent_code: s
 // once a province is chosen.
 const { data: provincesData } = await useFetch<Province[]>('/provinces.json')
 const { data: wardsData } = await useFetch<Ward[]>('/wards.json')
-const provinces = computed(() => provincesData.value ?? [])
-const allWards = computed(() => wardsData.value ?? [])
+// Guard with Array.isArray: during SSR the static-asset fetch can briefly resolve to a
+// non-array (e.g. an error/HTML body), and downstream .map() would throw on it.
+const provinces = computed(() => (Array.isArray(provincesData.value) ? provincesData.value : []))
+const allWards = computed(() => (Array.isArray(wardsData.value) ? wardsData.value : []))
 
 const billing = reactive({
   fullName: '',
@@ -287,6 +305,10 @@ const shipping = reactive({
 
 const billingWards = computed(() => allWards.value.filter(w => w.parent_code === billing.provinceCode))
 const shippingWards = computed(() => allWards.value.filter(w => w.parent_code === shipping.provinceCode))
+
+const provinceOptions = computed(() => provinces.value.map(p => ({ value: p.code, label: p.name_with_type })))
+const billingWardOptions = computed(() => billingWards.value.map(w => ({ value: w.code, label: w.name_with_type })))
+const shippingWardOptions = computed(() => shippingWards.value.map(w => ({ value: w.code, label: w.name_with_type })))
 
 // Changing the province invalidates whatever ward was picked under the old one.
 watch(() => billing.provinceCode, () => { billing.wardCode = '' })
@@ -320,6 +342,14 @@ function formatCurrency(value: number) {
 async function handlePlaceOrder() {
   errorMessage.value = ''
 
+  if (!billing.provinceCode || !billing.wardCode) {
+    errorMessage.value = 'Please select a province and ward for the billing address.'
+    return
+  }
+  if (shipToDifferent.value && (!shipping.provinceCode || !shipping.wardCode)) {
+    errorMessage.value = 'Please select a province and ward for the shipping address.'
+    return
+  }
   if (!acceptedTerms.value) {
     errorMessage.value = 'Please accept the terms and conditions to continue.'
     return

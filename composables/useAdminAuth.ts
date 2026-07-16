@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'pharmacy-vitamin-admin-token'
 
-// Module-scope singleton, mirrors composables/useCart.ts's pattern.
+// Module-scope singleton composable (auth is lightweight and non-persistent, so it stays a
+// plain composable rather than a Pinia store like the cart).
 const token = ref<string | null>(null)
 let hydrated = false
 
