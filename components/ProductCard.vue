@@ -180,7 +180,7 @@ export type Product = {
 const props = withDefaults(defineProps<{ product: Product; layout?: 'grid' | 'list' }>(), { layout: 'grid' })
 
 const NuxtLink = resolveComponent('NuxtLink')
-const { addItem } = useCart()
+const { addItem } = useCartStore()
 const justAdded = ref(false)
 const imageFailed = ref(false)
 

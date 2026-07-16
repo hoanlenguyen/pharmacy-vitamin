@@ -1,0 +1,6 @@
+# The Cloudflare Worker + its database/storage are deployed separately via wrangler
+# (see DEPLOY.md); Vercel only builds the Nuxt app and should ignore these.
+worker/
+wrangler.toml
+db/
+.dev.vars

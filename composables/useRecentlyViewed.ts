@@ -1,7 +1,7 @@
 const STORAGE_KEY = 'pharmacy-vitamin-recently-viewed'
 const MAX_ITEMS = 8
 
-// Module-scope singleton, mirrors composables/useCart.ts's pattern.
+// Module-scope singleton composable.
 const slugs = ref<string[]>([])
 let hydrated = false
 
