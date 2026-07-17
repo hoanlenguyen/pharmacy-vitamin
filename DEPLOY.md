@@ -15,6 +15,18 @@ Image blobs are served *through* the Worker (`GET /images/*`), and product image
 stored as absolute Worker URLs — so images load straight from the Worker origin regardless of
 where the frontend is hosted.
 
+## Provisioned resources (current)
+
+| Resource            | Value                                                        |
+| ------------------- | ------------------------------------------------------------ |
+| Worker URL          | `https://pharmacy-vitamin-api.lenguyenhanhoan.workers.dev`   |
+| Cloudflare account  | `45d26c85e451d2348d3355ad6f0e96e0`                           |
+| D1 database         | `pharmacy-vitamin-db` (`275397aa-d943-4f3b-bc65-f403ff3e6756`) — migrated + seeded |
+| R2 bucket           | `pharmacy-vitamin-images`                                    |
+| `API_TOKEN` secret  | set on the Worker (rotate if it has been shared)             |
+
+The Cloudflare side is already deployed; Section 1 is the reproduction/rebuild recipe.
+
 ---
 
 ## 1. Cloudflare Worker (API + D1 + R2)
@@ -41,8 +53,8 @@ wrangler secret put API_TOKEN
 wrangler deploy
 ```
 
-Before step 5, `wrangler.toml` must have the real `database_id` from step 1 (it currently holds
-a `REPLACE_WITH_REAL_DATABASE_ID` placeholder).
+Before step 5, `wrangler.toml` must have the real `database_id` from step 1 (already filled in
+for the current deployment).
 
 ## 2. Nuxt on Vercel
 
@@ -52,17 +64,51 @@ a `REPLACE_WITH_REAL_DATABASE_ID` placeholder).
 
    | Variable            | Value                                                        |
    | ------------------- | ------------------------------------------------------------ |
-   | `WORKER_API_URL`    | the Worker URL from step 1.5 (`https://…workers.dev`)        |
+   | `WORKER_API_URL`    | `https://pharmacy-vitamin-api.lenguyenhanhoan.workers.dev`   |
    | `WORKER_API_TOKEN`  | **the same value** as the Worker's `API_TOKEN` secret        |
    | `ADMIN_UI_TOKEN`    | token that gates the `/admin` UI                             |
 
-3. Deploy.
+3. Deploy. Env vars only apply to **new** builds — redeploy after adding them.
 
-## 3. Verify
+## 3. CI — auto-deploy the Worker (GitHub Actions)
+
+`.github/workflows/deploy-worker.yml` runs D1 migrations + `wrangler deploy` on pushes to the
+`deploy` branch that touch `worker/**`, `db/migrations/**`, or `wrangler.toml` (and via manual
+`workflow_dispatch`). Add two **repository secrets** (Settings → Secrets and variables → Actions):
+
+| Secret                  | Value                                                              |
+| ----------------------- | ----------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID` | `45d26c85e451d2348d3355ad6f0e96e0`                                 |
+| `CLOUDFLARE_API_TOKEN`  | a Cloudflare API token (see permissions below)                    |
+
+Create the API token at **My Profile → API Tokens → Create Token** (start from the *Edit
+Cloudflare Workers* template, then add D1). Required **account-scoped** permissions:
+
+- **Workers Scripts: Edit** — deploy the Worker
+- **D1: Edit** — apply migrations
+- **Workers R2 Storage: Read** — validate the R2 binding at deploy time
+- **Account Settings: Read**
+
+This is a *Cloudflare API token* for tooling — **not** an R2 API Token (S3 access key). R2 API
+Tokens are only needed to reach the bucket from outside the Workers runtime (`aws s3`, `rclone`,
+a non-Worker service); this app never does — it uses the `env.IMAGES` binding, which needs no
+keys. The Worker's own `API_TOKEN` bearer secret is set once via `wrangler secret put` and is
+**not** managed by CI (deploying code doesn't clear existing secrets).
+
+## 4. Verify
 
 - Open the Vercel URL — the storefront should load products (proves Nuxt → Worker → D1).
-- Product images render (proves R2 via the Worker).
+- Product images render (proves R2 via the Worker; seed data uses placeholder URLs, so upload a
+  real image via `/admin` to confirm end to end).
 - Log into `/admin` with `ADMIN_UI_TOKEN` and load a list page (proves the authenticated proxy).
+
+Quick Worker smoke test (no browser needed):
+
+```bash
+curl -s "https://pharmacy-vitamin-api.lenguyenhanhoan.workers.dev/products?limit=1"   # 200 + JSON
+curl -s -o /dev/null -w '%{http_code}\n' \
+  "https://pharmacy-vitamin-api.lenguyenhanhoan.workers.dev/admin/products"           # 401 (auth enforced)
+```
 
 ---
 
