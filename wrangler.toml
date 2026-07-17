@@ -5,12 +5,10 @@ compatibility_date = "2026-06-01"
 # API_TOKEN is a secret, not a plain var — set locally via .dev.vars
 # (gitignored) and remotely via `wrangler secret put API_TOKEN`.
 
-# TODO: after running `wrangler d1 create pharmacy-vitamin-db`, paste the
-# real database_id below. account_id comes from the Cloudflare dashboard.
 [[d1_databases]]
 binding = "DB"
 database_name = "pharmacy-vitamin-db"
-database_id = "REPLACE_WITH_REAL_DATABASE_ID"
+database_id = "275397aa-d943-4f3b-bc65-f403ff3e6756"
 migrations_dir = "db/migrations"
 
 # TODO: after running `wrangler r2 bucket create pharmacy-vitamin-images`,
