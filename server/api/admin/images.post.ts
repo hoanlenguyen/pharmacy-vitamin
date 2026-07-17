@@ -1,7 +1,6 @@
 export default defineEventHandler(async event => {
   assertAdminToken(event)
 
-  const config = useRuntimeConfig(event)
   const filename = getQuery(event).filename as string | undefined
   const contentType = getHeader(event, 'content-type') ?? 'application/octet-stream'
   const body = await readRawBody(event, false)
@@ -21,5 +20,6 @@ export default defineEventHandler(async event => {
 
   // The Worker returns a path relative to its own origin; resolve it here so the
   // browser (which never talks to the Worker directly) gets a loadable absolute URL.
-  return { url: `${config.workerApiUrl}${result.url}` }
+  // workerBaseUrl trims stray whitespace so it can't corrupt the stored image URL.
+  return { url: `${workerBaseUrl(event)}${result.url}` }
 })

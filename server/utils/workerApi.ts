@@ -2,6 +2,16 @@ import type { H3Event } from 'h3'
 import { $fetch as ofetch } from 'ofetch'
 
 /**
+ * Resolved Worker origin. Prefers the runtime env var (see workerFetch) over the build-baked
+ * runtimeConfig, and trims stray whitespace + trailing slashes — a leading tab/space pasted
+ * into the Vercel env var would otherwise get concatenated into image URLs and break them.
+ */
+export function workerBaseUrl(event: H3Event): string {
+  const config = useRuntimeConfig(event)
+  return (process.env.WORKER_API_URL || config.workerApiUrl || '').trim().replace(/\/+$/, '')
+}
+
+/**
  * Calls the Cloudflare Worker API server-to-server. The real Worker bearer
  * token lives only here (runtimeConfig, server-only) — it never reaches the
  * browser, so public routes don't need to pass `auth`.
@@ -24,14 +34,22 @@ export async function workerFetch<T>(
 ): Promise<T> {
   const config = useRuntimeConfig(event)
 
+  // Read process.env at *runtime* with the build-baked runtimeConfig as fallback. On Vercel,
+  // runtimeConfig values sourced from `process.env.X` in nuxt.config are frozen at build time,
+  // so a cached/redeployed build can keep a stale default (e.g. localhost). Vercel injects the
+  // real env vars into the serverless runtime, so reading them here stays correct regardless of
+  // when the bundle was built.
+  const baseURL = workerBaseUrl(event)
+  const token = (process.env.WORKER_API_TOKEN || config.workerApiToken || '').trim()
+
   try {
     return await ofetch<T>(path, {
-      baseURL: config.workerApiUrl,
+      baseURL,
       method: (options.method as 'GET') ?? 'GET',
       query: options.query,
       body: options.body,
       headers: {
-        ...(options.auth ? { Authorization: `Bearer ${config.workerApiToken}` } : {}),
+        ...(options.auth ? { Authorization: `Bearer ${token}` } : {}),
         ...options.extraHeaders
       }
     })
@@ -54,8 +72,10 @@ export async function workerFetch<T>(
 export function assertAdminToken(event: H3Event) {
   const config = useRuntimeConfig(event)
   const provided = getHeader(event, 'x-admin-token')
+  // Runtime env first (see workerFetch above), falling back to build-baked config.
+  const expected = process.env.ADMIN_UI_TOKEN || process.env.WORKER_API_TOKEN || config.adminUiToken
 
-  if (!config.adminUiToken || provided !== config.adminUiToken) {
+  if (!expected || provided !== expected) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 }
