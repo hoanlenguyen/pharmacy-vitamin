@@ -2,6 +2,16 @@ import type { H3Event } from 'h3'
 import { $fetch as ofetch } from 'ofetch'
 
 /**
+ * Resolved Worker origin. Prefers the runtime env var (see workerFetch) over the build-baked
+ * runtimeConfig, and trims stray whitespace + trailing slashes — a leading tab/space pasted
+ * into the Vercel env var would otherwise get concatenated into image URLs and break them.
+ */
+export function workerBaseUrl(event: H3Event): string {
+  const config = useRuntimeConfig(event)
+  return (process.env.WORKER_API_URL || config.workerApiUrl || '').trim().replace(/\/+$/, '')
+}
+
+/**
  * Calls the Cloudflare Worker API server-to-server. The real Worker bearer
  * token lives only here (runtimeConfig, server-only) — it never reaches the
  * browser, so public routes don't need to pass `auth`.
@@ -29,8 +39,8 @@ export async function workerFetch<T>(
   // so a cached/redeployed build can keep a stale default (e.g. localhost). Vercel injects the
   // real env vars into the serverless runtime, so reading them here stays correct regardless of
   // when the bundle was built.
-  const baseURL = process.env.WORKER_API_URL || config.workerApiUrl
-  const token = process.env.WORKER_API_TOKEN || config.workerApiToken
+  const baseURL = workerBaseUrl(event)
+  const token = (process.env.WORKER_API_TOKEN || config.workerApiToken || '').trim()
 
   try {
     return await ofetch<T>(path, {
