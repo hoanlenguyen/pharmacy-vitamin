@@ -24,14 +24,22 @@ export async function workerFetch<T>(
 ): Promise<T> {
   const config = useRuntimeConfig(event)
 
+  // Read process.env at *runtime* with the build-baked runtimeConfig as fallback. On Vercel,
+  // runtimeConfig values sourced from `process.env.X` in nuxt.config are frozen at build time,
+  // so a cached/redeployed build can keep a stale default (e.g. localhost). Vercel injects the
+  // real env vars into the serverless runtime, so reading them here stays correct regardless of
+  // when the bundle was built.
+  const baseURL = process.env.WORKER_API_URL || config.workerApiUrl
+  const token = process.env.WORKER_API_TOKEN || config.workerApiToken
+
   try {
     return await ofetch<T>(path, {
-      baseURL: config.workerApiUrl,
+      baseURL,
       method: (options.method as 'GET') ?? 'GET',
       query: options.query,
       body: options.body,
       headers: {
-        ...(options.auth ? { Authorization: `Bearer ${config.workerApiToken}` } : {}),
+        ...(options.auth ? { Authorization: `Bearer ${token}` } : {}),
         ...options.extraHeaders
       }
     })
@@ -54,8 +62,10 @@ export async function workerFetch<T>(
 export function assertAdminToken(event: H3Event) {
   const config = useRuntimeConfig(event)
   const provided = getHeader(event, 'x-admin-token')
+  // Runtime env first (see workerFetch above), falling back to build-baked config.
+  const expected = process.env.ADMIN_UI_TOKEN || process.env.WORKER_API_TOKEN || config.adminUiToken
 
-  if (!config.adminUiToken || provided !== config.adminUiToken) {
+  if (!expected || provided !== expected) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 }
