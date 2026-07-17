@@ -29,12 +29,22 @@
         <h1 class="font-display text-2xl font-bold text-gray-900">{{ combo.name }}</h1>
         <p v-if="combo.description" class="mt-2 text-sm leading-relaxed text-gray-600">{{ combo.description }}</p>
 
-        <div class="mt-4 flex items-baseline gap-3 rounded-xl bg-rose-50/60 px-4 py-3">
-          <span class="font-display text-2xl font-bold text-rose-600">{{ formatCurrency(combo.price) }}</span>
-          <span v-if="combo.compareAtPrice" class="text-sm text-gray-400 line-through">{{ formatCurrency(combo.compareAtPrice) }}</span>
-          <span v-if="savings > 0" class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-700">
-            Save {{ formatCurrency(savings) }}
-          </span>
+        <div class="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-rose-50/60 px-4 py-3">
+          <div class="flex items-baseline gap-3">
+            <span class="font-display text-2xl font-bold text-rose-600">{{ formatCurrency(combo.price) }}</span>
+            <span v-if="combo.compareAtPrice" class="text-sm text-gray-400 line-through">{{ formatCurrency(combo.compareAtPrice) }}</span>
+            <span v-if="savings > 0" class="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-700">
+              Save {{ formatCurrency(savings) }}
+            </span>
+          </div>
+          <button
+            type="button"
+            class="ml-auto flex items-center gap-2 rounded-full bg-rose-gradient px-6 py-2.5 text-sm font-semibold text-white shadow-card transition-opacity hover:opacity-90"
+            @click="addComboToCart"
+          >
+            <ShoppingBag class="h-4 w-4" aria-hidden="true" />
+            {{ justAdded ? 'Added!' : 'Add Bundle to Cart' }}
+          </button>
         </div>
       </div>
 
@@ -60,14 +70,14 @@
       </div>
 
       <p class="mt-6 text-xs text-gray-400">
-        Buy each item individually above at the bundle price shown — combined bundle checkout isn't wired up yet.
+        Add the whole bundle to your cart at the price above, or tap any product to view it on its own.
       </p>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ChevronRight, Image as ImageIcon, PackageSearch } from '@lucide/vue'
+import { ChevronRight, Image as ImageIcon, PackageSearch, ShoppingBag } from '@lucide/vue'
 
 type ComboDetail = {
   slug: string
@@ -84,6 +94,23 @@ const { data: combo, pending } = await useFetch<ComboDetail>(() => `/api/combos/
 useHead({ title: computed(() => (combo.value ? `${combo.value.name} — Pharmacy Vitamin` : 'Combo not found')) })
 
 const savings = computed(() => (combo.value?.compareAtPrice ? combo.value.compareAtPrice - combo.value.price : 0))
+
+const { addItem } = useCartStore()
+const justAdded = ref(false)
+
+function addComboToCart() {
+  if (!combo.value) return
+  addItem({
+    id: `combo:${combo.value.slug}`,
+    name: combo.value.name,
+    price: combo.value.price,
+    originalPrice: combo.value.compareAtPrice ?? undefined,
+    slug: combo.value.slug,
+    kind: 'combo'
+  })
+  justAdded.value = true
+  setTimeout(() => (justAdded.value = false), 1200)
+}
 
 function formatCurrency(value: number) {
   return `${new Intl.NumberFormat('en-US').format(value)}đ`

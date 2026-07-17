@@ -376,11 +376,15 @@ async function handlePlaceOrder() {
         postalCode: shipTo.postalCode || undefined,
         country: 'Vietnam'
       },
-      items: items.value.map(line => ({
-        slug: line.slug ?? line.id,
-        variantId: line.id.includes(':') ? line.id.split(':').slice(1).join(':') : undefined,
-        quantity: line.quantity
-      })),
+      items: items.value.map(line =>
+        line.kind === 'combo'
+          ? { slug: line.slug ?? line.id, type: 'combo' as const, quantity: line.quantity }
+          : {
+              slug: line.slug ?? line.id,
+              variantId: line.id.includes(':') ? line.id.split(':').slice(1).join(':') : undefined,
+              quantity: line.quantity
+            }
+      ),
       paymentMethod: paymentMethod.value,
       notes: notes.value || undefined
     }

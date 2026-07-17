@@ -21,7 +21,7 @@ type CreateOrderBody = {
     postalCode?: string
     country?: string
   }
-  items?: { slug?: string; variantId?: string; quantity?: number }[]
+  items?: { slug?: string; variantId?: string; quantity?: number; type?: 'product' | 'combo' }[]
   paymentMethod?: string
   notes?: string
 }
@@ -52,7 +52,8 @@ orders.post('/', async c => {
   }
 
   type ResolvedLine = {
-    productId: string
+    productId: string | null
+    comboId: string | null
     variantId: string | null
     nameSnapshot: string
     unitPrice: number
@@ -65,6 +66,26 @@ orders.post('/', async c => {
     const quantity = Math.floor(Number(item.quantity))
     if (!item.slug || !Number.isFinite(quantity) || quantity < 1) {
       return c.json({ error: 'Each item needs a slug and a positive quantity' }, 400)
+    }
+
+    // A combo is bought "as a product": one line at the bundle price, resolved server-side.
+    if (item.type === 'combo') {
+      const combo = await c.env.DB.prepare(`SELECT id, name, price FROM combos WHERE slug = ?1 AND status = 'active'`)
+        .bind(item.slug)
+        .first<{ id: string; name: string; price: number }>()
+      if (!combo) {
+        return c.json({ error: `Unknown or inactive combo: ${item.slug}` }, 400)
+      }
+      resolvedLines.push({
+        productId: null,
+        comboId: combo.id,
+        variantId: null,
+        nameSnapshot: combo.name,
+        unitPrice: combo.price,
+        quantity,
+        lineTotal: combo.price * quantity
+      })
+      continue
     }
 
     const product = await c.env.DB.prepare(`SELECT id, name, price FROM products WHERE slug = ?1 AND status = 'active'`)
@@ -96,7 +117,7 @@ orders.post('/', async c => {
       variantId = variant.id
     }
 
-    resolvedLines.push({ productId: product.id, variantId, nameSnapshot, unitPrice, quantity, lineTotal: unitPrice * quantity })
+    resolvedLines.push({ productId: product.id, comboId: null, variantId, nameSnapshot, unitPrice, quantity, lineTotal: unitPrice * quantity })
   }
 
   const subtotal = resolvedLines.reduce((sum, line) => sum + line.lineTotal, 0)
@@ -144,9 +165,9 @@ orders.post('/', async c => {
   await c.env.DB.batch(
     resolvedLines.map(line =>
       c.env.DB.prepare(
-        `INSERT INTO order_items (id, order_id, product_id, variant_id, product_name_snapshot, unit_price_snapshot, quantity, line_total)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
-      ).bind(crypto.randomUUID(), orderId, line.productId, line.variantId, line.nameSnapshot, line.unitPrice, line.quantity, line.lineTotal)
+        `INSERT INTO order_items (id, order_id, product_id, combo_id, variant_id, product_name_snapshot, unit_price_snapshot, quantity, line_total)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
+      ).bind(crypto.randomUUID(), orderId, line.productId, line.comboId, line.variantId, line.nameSnapshot, line.unitPrice, line.quantity, line.lineTotal)
     )
   )
 
@@ -178,9 +199,10 @@ orders.get('/:orderNumber', async c => {
 
   const { results: items } = await c.env.DB.prepare(
     `SELECT oi.id, oi.product_name_snapshot AS productName, oi.unit_price_snapshot AS unitPrice, oi.quantity, oi.line_total AS lineTotal,
-            p.slug AS productSlug
+            p.slug AS productSlug, co.slug AS comboSlug
      FROM order_items oi
      LEFT JOIN products p ON p.id = oi.product_id
+     LEFT JOIN combos co ON co.id = oi.combo_id
      WHERE oi.order_id = ?1`
   )
     .bind(order.id)

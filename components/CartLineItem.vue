@@ -14,8 +14,8 @@
     </button>
 
     <component
-      :is="line.slug ? NuxtLink : 'div'"
-      :to="line.slug ? `/products/${line.slug}` : undefined"
+      :is="detailPath ? NuxtLink : 'div'"
+      :to="detailPath"
       class="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-rose-soft-gradient"
     >
       <ImageIcon class="h-6 w-6 text-rose-300" aria-hidden="true" />
@@ -23,8 +23,8 @@
 
     <div class="min-w-[10rem] flex-1">
       <component
-        :is="line.slug ? NuxtLink : 'p'"
-        :to="line.slug ? `/products/${line.slug}` : undefined"
+        :is="detailPath ? NuxtLink : 'p'"
+        :to="detailPath"
         class="text-sm font-medium text-gray-800 transition-colors hover:text-rose-600"
       >
         {{ line.name }}
@@ -49,10 +49,15 @@ import { Image as ImageIcon, X } from '@lucide/vue'
 import { resolveComponent } from 'vue'
 import type { CartLine } from '~/stores/cart'
 
-defineProps<{ line: CartLine }>()
+const props = defineProps<{ line: CartLine }>()
 defineEmits<{ remove: [id: string]; 'update-quantity': [id: string, quantity: number] }>()
 
 const NuxtLink = resolveComponent('NuxtLink')
+
+// Combos link to their bundle page; products to the product page.
+const detailPath = computed(() =>
+  props.line.slug ? `/${props.line.kind === 'combo' ? 'combos' : 'products'}/${props.line.slug}` : undefined
+)
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-US').format(value)

@@ -57,10 +57,10 @@
             </div>
             <div v-for="item in order.items" :key="item.id" class="flex items-start justify-between gap-3 border-b border-gray-100 py-3 text-sm text-gray-600 last:border-b-0">
               <component
-                :is="item.productSlug ? NuxtLink : 'span'"
-                :to="item.productSlug ? `/products/${item.productSlug}` : undefined"
+                :is="itemLink(item) ? NuxtLink : 'span'"
+                :to="itemLink(item)"
                 class="transition-colors"
-                :class="item.productSlug ? 'hover:text-rose-600' : ''"
+                :class="itemLink(item) ? 'hover:text-rose-600' : ''"
               >
                 {{ item.productName }} <span class="text-gray-400">× {{ item.quantity }}</span>
               </component>
@@ -137,11 +137,18 @@ type OrderDetail = {
   shippingPostalCode: string | null
   shippingCountry: string
   notes: string | null
-  items: { id: string; productName: string; unitPrice: number; quantity: number; lineTotal: number; productSlug: string | null }[]
+  items: { id: string; productName: string; unitPrice: number; quantity: number; lineTotal: number; productSlug: string | null; comboSlug: string | null }[]
 }
 
 const NuxtLink = resolveComponent('NuxtLink')
 const route = useRoute()
+
+// Combo lines link to their bundle page, product lines to the product page.
+function itemLink(item: OrderDetail['items'][number]) {
+  if (item.comboSlug) return `/combos/${item.comboSlug}`
+  if (item.productSlug) return `/products/${item.productSlug}`
+  return undefined
+}
 
 const { data: order, pending } = await useFetch<OrderDetail>(() => `/api/orders/${route.params.orderNumber}`)
 

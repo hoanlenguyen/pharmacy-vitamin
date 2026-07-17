@@ -6,6 +6,9 @@ export type CartLine = {
   price: number
   originalPrice?: number
   slug?: string
+  // 'combo' lines are bundles bought as a single product; default 'product' when absent
+  // (older persisted carts predate this field).
+  kind?: 'product' | 'combo'
   quantity: number
 }
 
