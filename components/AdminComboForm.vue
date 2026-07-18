@@ -81,6 +81,33 @@
       />
     </label>
 
+    <div class="block">
+      <span class="text-xs font-medium text-gray-600">Combo Image</span>
+      <div class="mt-1 flex items-center gap-4">
+        <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-rose-soft-gradient">
+          <img
+            v-if="imagePreview && !previewFailed"
+            :src="imagePreview"
+            alt=""
+            class="h-full w-full object-cover"
+            @error="previewFailed = true"
+          />
+          <ImageIcon v-else class="h-6 w-6 text-rose-300" aria-hidden="true" />
+        </div>
+        <div>
+          <label
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-rose-300 hover:text-rose-600"
+          >
+            <Upload class="h-4 w-4" aria-hidden="true" />
+            {{ uploadingImage ? 'Uploading…' : 'Choose Image' }}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" :disabled="uploadingImage" @change="handleFileChange" />
+          </label>
+          <p v-if="uploadError" class="mt-1 text-xs text-red-600">{{ uploadError }}</p>
+          <p v-else class="mt-1 text-xs text-gray-400">Optional. Falls back to the first product's image if left empty.</p>
+        </div>
+      </div>
+    </div>
+
     <div>
       <span class="text-xs font-medium text-gray-600">Products in this bundle *</span>
 
@@ -145,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2, X } from '@lucide/vue'
+import { Image as ImageIcon, Loader2, Upload, X } from '@lucide/vue'
 
 type ComboItemInput = { productSlug: string; productName: string; quantity: number }
 
@@ -157,6 +184,7 @@ export type ComboFormPayload = {
   compareAtPrice?: number
   status: 'active' | 'draft' | 'archived'
   sortOrder?: number
+  imageUrl?: string | null
   items: { productSlug: string; quantity: number }[]
 }
 
@@ -176,8 +204,38 @@ const form = reactive({
   price: props.initial?.price ?? 0,
   compareAtPrice: props.initial?.compareAtPrice,
   status: props.initial?.status ?? 'active',
-  sortOrder: props.initial?.sortOrder ?? 0
+  sortOrder: props.initial?.sortOrder ?? 0,
+  imageUrl: props.initial?.imageUrl ?? undefined
 })
+
+const imagePreview = ref(props.initial?.imageUrl ?? undefined)
+const previewFailed = ref(false)
+const uploadingImage = ref(false)
+const uploadError = ref('')
+
+async function handleFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  imagePreview.value = URL.createObjectURL(file)
+  previewFailed.value = false
+  uploadingImage.value = true
+  uploadError.value = ''
+
+  try {
+    const result = await $fetch<{ url: string }>('/api/admin/images', {
+      method: 'POST',
+      query: { filename: file.name },
+      headers: { ...authHeaders(), 'Content-Type': file.type },
+      body: file
+    })
+    form.imageUrl = result.url
+  } catch {
+    uploadError.value = 'Upload failed. Please try again.'
+  } finally {
+    uploadingImage.value = false
+  }
+}
 
 const items = ref<ComboItemInput[]>(props.initial?.items ? [...props.initial.items] : [])
 const selectedToAdd = ref('')
@@ -209,6 +267,7 @@ function handleSubmit() {
   emit('submit', {
     ...form,
     compareAtPrice: form.compareAtPrice || undefined,
+    imageUrl: form.imageUrl || null,
     items: items.value.map(item => ({ productSlug: item.productSlug, quantity: Math.max(1, item.quantity) }))
   })
 }

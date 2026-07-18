@@ -25,6 +25,13 @@
     </div>
 
     <template v-else>
+      <div
+        v-if="combo.imageUrl"
+        class="mb-6 flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-2xl bg-rose-soft-gradient sm:aspect-[21/9]"
+      >
+        <img :src="combo.imageUrl" :alt="combo.name" class="h-full w-full object-cover" />
+      </div>
+
       <div class="mb-8">
         <h1 class="font-display text-2xl font-bold text-gray-900">{{ combo.name }}</h1>
         <p v-if="combo.description" class="mt-2 text-sm leading-relaxed text-gray-600">{{ combo.description }}</p>
@@ -85,6 +92,7 @@ type ComboDetail = {
   description: string | null
   price: number
   compareAtPrice: number | null
+  imageUrl: string | null
   items: { productId: string; productSlug: string; productName: string; quantity: number; unitPrice: number; imageUrl: string | null }[]
 }
 
