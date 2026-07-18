@@ -3,9 +3,10 @@ name: Deploy Worker
 # Deploys the Cloudflare Worker (API + D1 + R2). The Nuxt frontend deploys separately on
 # Vercel; this only fires when the Worker, its migrations, or wrangler config change.
 #
-# Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+# Required GitHub Actions credentials (Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN   - a token with "Edit Cloudflare Workers" + D1 edit permissions
 #   CLOUDFLARE_ACCOUNT_ID  - your Cloudflare account id
+# Store these as repository secrets (recommended). Repository variables are also supported.
 #
 # Note: the Worker's own API_TOKEN bearer secret is NOT set here — set it once with
 # `wrangler secret put API_TOKEN`. Deploying code does not clear existing secrets.
@@ -23,26 +24,36 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # Prefer secrets; fall back to repository variables if that's where credentials were stored.
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # wrangler 4.x requires Node >= 22
+          node-version: 22
           cache: npm
 
       # --ignore-scripts skips the `nuxt prepare` postinstall (frontend-only, not needed to
       # bundle/deploy the Worker) while still installing wrangler + hono.
       - run: npm ci --ignore-scripts
 
+      - name: Validate Cloudflare credentials
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ]; then
+            echo "::error::Missing CLOUDFLARE_API_TOKEN. Configure it as a repository secret (recommended) or repository variable."
+            exit 1
+          fi
+          if [ -z "${CLOUDFLARE_ACCOUNT_ID}" ]; then
+            echo "::error::Missing CLOUDFLARE_ACCOUNT_ID. Configure it as a repository secret or repository variable."
+            exit 1
+          fi
+
       - name: Apply D1 migrations (remote)
         run: npx wrangler d1 migrations apply pharmacy-vitamin-db --remote
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Deploy Worker
         run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
