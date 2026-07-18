@@ -34,6 +34,7 @@ type AdminComboDetail = {
   compareAtPrice: number | null
   status: 'active' | 'draft' | 'archived'
   sortOrder: number
+  imageUrl: string | null
   items: { productSlug: string; productName: string; quantity: number }[]
 }
 
@@ -64,6 +65,7 @@ const initialValues = computed<Partial<ComboFormPayload> & { items?: { productSl
   compareAtPrice: existing.value?.compareAtPrice ?? undefined,
   status: existing.value?.status ?? 'active',
   sortOrder: existing.value?.sortOrder ?? 0,
+  imageUrl: existing.value?.imageUrl ?? undefined,
   items: existing.value?.items ?? []
 }))
 
@@ -84,6 +86,7 @@ async function handleSubmit(payload: ComboFormPayload) {
         compareAtPrice: payload.compareAtPrice ?? null,
         status: payload.status,
         sortOrder: payload.sortOrder,
+        imageUrl: payload.imageUrl ?? null,
         items: payload.items
       }
     })

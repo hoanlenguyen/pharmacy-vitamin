@@ -35,9 +35,12 @@ combos.get('/', async c => {
     `SELECT
        co.id, co.slug, co.name, co.description, co.price, co.compare_at_price AS compareAtPrice,
        (SELECT COUNT(*) FROM combo_items ci WHERE ci.combo_id = co.id) AS itemCount,
-       (SELECT pi.url FROM combo_items ci
-        JOIN product_images pi ON pi.product_id = ci.product_id
-        WHERE ci.combo_id = co.id ORDER BY pi.sort_order LIMIT 1) AS thumbnailUrl
+       COALESCE(
+         co.image_url,
+         (SELECT pi.url FROM combo_items ci
+          JOIN product_images pi ON pi.product_id = ci.product_id
+          WHERE ci.combo_id = co.id ORDER BY pi.sort_order LIMIT 1)
+       ) AS thumbnailUrl
      FROM combos co
      WHERE co.status = 'active'
      ORDER BY co.sort_order, co.name`
@@ -51,11 +54,11 @@ combos.get('/:slug', async c => {
   const slug = c.req.param('slug')
 
   const combo = await c.env.DB.prepare(
-    `SELECT id, slug, name, description, price, compare_at_price AS compareAtPrice
+    `SELECT id, slug, name, description, price, compare_at_price AS compareAtPrice, image_url AS imageUrl
      FROM combos WHERE slug = ?1 AND status = 'active'`
   )
     .bind(slug)
-    .first<{ id: string; slug: string; name: string; description: string | null; price: number; compareAtPrice: number | null }>()
+    .first<{ id: string; slug: string; name: string; description: string | null; price: number; compareAtPrice: number | null; imageUrl: string | null }>()
 
   if (!combo) {
     return c.json({ error: 'Not found' }, 404)
@@ -76,6 +79,7 @@ type ComboBody = {
   compareAtPrice?: number | null
   status?: 'active' | 'draft' | 'archived'
   sortOrder?: number
+  imageUrl?: string | null
   items?: { productSlug: string; quantity?: number }[]
 }
 
@@ -123,7 +127,7 @@ adminCombos.get('/:slug', async c => {
   const slug = c.req.param('slug')
 
   const combo = await c.env.DB.prepare(
-    `SELECT id, slug, name, description, price, compare_at_price AS compareAtPrice, status, sort_order AS sortOrder
+    `SELECT id, slug, name, description, price, compare_at_price AS compareAtPrice, status, sort_order AS sortOrder, image_url AS imageUrl
      FROM combos WHERE slug = ?1`
   )
     .bind(slug)
@@ -136,6 +140,7 @@ adminCombos.get('/:slug', async c => {
       compareAtPrice: number | null
       status: string
       sortOrder: number
+      imageUrl: string | null
     }>()
 
   if (!combo) {
@@ -178,8 +183,8 @@ adminCombos.post('/', async c => {
 
   const id = crypto.randomUUID()
   await c.env.DB.prepare(
-    `INSERT INTO combos (id, slug, name, description, price, compare_at_price, status, sort_order)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
+    `INSERT INTO combos (id, slug, name, description, price, compare_at_price, status, sort_order, image_url)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
   )
     .bind(
       id,
@@ -189,7 +194,8 @@ adminCombos.post('/', async c => {
       body.price,
       body.compareAtPrice ?? null,
       body.status ?? 'active',
-      body.sortOrder ?? 0
+      body.sortOrder ?? 0,
+      body.imageUrl ?? null
     )
     .run()
 
@@ -221,6 +227,7 @@ adminCombos.patch('/:slug', async c => {
   if (body.compareAtPrice !== undefined) set('compare_at_price', body.compareAtPrice)
   if (body.status !== undefined) set('status', body.status)
   if (body.sortOrder !== undefined) set('sort_order', body.sortOrder)
+  if (body.imageUrl !== undefined) set('image_url', body.imageUrl)
 
   if (fields.length > 0) {
     values.push(existing.id)
